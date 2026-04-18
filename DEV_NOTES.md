@@ -161,15 +161,3 @@ Browser page
                            On-chain walour_oracle PDAs
 ```
 
----
-
-## Key Contacts / Accounts Needed
-
-| Service | Purpose | Who has access |
-|---|---|---|
-| Supabase | Threat corpus DB | Sahir |
-| Helius | Solana RPC | Sahir |
-| Anthropic | Claude API | Sahir |
-| Upstash | Redis cache | Sahir |
-| Vercel | Worker + web deploy | Sahir |
-| Chrome Web Store | Extension publish | Sahir |

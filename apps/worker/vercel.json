@@ -1,0 +1,41 @@
+{
+  "crons": [
+    { "path": "/api/ingest", "schedule": "*/15 * * * *" },
+    { "path": "/api/purge", "schedule": "0 2 * * *" },
+    { "path": "/api/promote", "schedule": "0 * * * *" }
+  ],
+  "rewrites": [
+    { "source": "/api/scan", "destination": "/src/scan.ts" },
+    { "source": "/api/decode", "destination": "/src/decode.ts" },
+    { "source": "/api/promote", "destination": "/src/promote.ts" },
+    { "source": "/api/blink", "destination": "/src/blink.ts" }
+  ],
+  "headers": [
+    {
+      "source": "/api/scan",
+      "headers": [
+        { "key": "Access-Control-Allow-Origin", "value": "chrome-extension://*" },
+        { "key": "Access-Control-Allow-Methods", "value": "GET, OPTIONS" },
+        { "key": "Access-Control-Allow-Headers", "value": "Content-Type" }
+      ]
+    },
+    {
+      "source": "/api/decode",
+      "headers": [
+        { "key": "Access-Control-Allow-Origin", "value": "chrome-extension://*" },
+        { "key": "Access-Control-Allow-Methods", "value": "POST, OPTIONS" },
+        { "key": "Access-Control-Allow-Headers", "value": "Content-Type" }
+      ]
+    },
+    {
+      "source": "/api/blink",
+      "headers": [
+        { "key": "Access-Control-Allow-Origin", "value": "*" },
+        { "key": "Access-Control-Allow-Methods", "value": "GET, OPTIONS" },
+        { "key": "Access-Control-Allow-Headers", "value": "Content-Type" },
+        { "key": "X-Action-Version", "value": "1" },
+        { "key": "Access-Control-Expose-Headers", "value": "X-Action-Version" }
+      ]
+    }
+  ]
+}

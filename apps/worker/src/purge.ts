@@ -1,0 +1,33 @@
+import { createClient } from '@supabase/supabase-js'
+
+// Vercel Edge Function — runs daily at 02:00 UTC via vercel.json cron
+export default async function handler(_req: Request): Promise<Response> {
+  const supabase = createClient(
+    process.env.SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_KEY!
+  )
+
+  const start = Date.now()
+
+  // Delete stale low-confidence entries that haven't been updated in 90 days
+  const { data, error, count } = await supabase
+    .from('threat_reports')
+    .delete({ count: 'exact' })
+    .lt('confidence', 0.2)
+    .lt('last_updated', new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString())
+
+  if (error) {
+    console.error('[purge] Supabase delete failed:', error.message)
+    return Response.json(
+      { ok: false, error: error.message },
+      { status: 500 }
+    )
+  }
+
+  const purged = count ?? 0
+  const duration_ms = Date.now() - start
+
+  console.log(`[purge] Purged ${purged} stale threat_reports in ${duration_ms}ms`)
+
+  return Response.json({ ok: true, purged, duration_ms })
+}

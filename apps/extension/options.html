@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Walour — Options</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #0D1117;
+      color: #E6EDF3;
+      font-family: 'SF Pro Display', 'Roboto', 'Segoe UI', system-ui, sans-serif;
+      font-size: 14px;
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      padding: 40px 16px;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 480px;
+    }
+
+    .page-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 32px;
+    }
+
+    .logo {
+      color: #00C9A7;
+      font-size: 28px;
+      line-height: 1;
+    }
+
+    .page-title {
+      font-size: 20px;
+      font-weight: 700;
+      color: #E6EDF3;
+    }
+
+    .page-subtitle {
+      font-size: 13px;
+      color: #8B949E;
+      margin-top: 2px;
+    }
+
+    .card {
+      background: #161B22;
+      border: 1px solid #30363D;
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 16px;
+    }
+
+    .card-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: #8B949E;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 16px;
+    }
+
+    .option-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px 0;
+      border-bottom: 1px solid #30363D;
+    }
+
+    .option-row:last-child {
+      border-bottom: none;
+      padding-bottom: 0;
+    }
+
+    .option-row:first-of-type {
+      padding-top: 0;
+    }
+
+    .option-label {
+      font-size: 14px;
+      color: #E6EDF3;
+      font-weight: 500;
+    }
+
+    .option-desc {
+      font-size: 12px;
+      color: #8B949E;
+      margin-top: 2px;
+    }
+
+    /* Toggle switch */
+    .toggle-wrapper {
+      position: relative;
+      flex-shrink: 0;
+    }
+
+    .toggle-wrapper input[type="checkbox"] {
+      opacity: 0;
+      width: 0;
+      height: 0;
+      position: absolute;
+    }
+
+    .toggle-slider {
+      display: block;
+      width: 40px;
+      height: 22px;
+      background: #30363D;
+      border-radius: 11px;
+      cursor: pointer;
+      transition: background 0.2s;
+      position: relative;
+    }
+
+    .toggle-slider::after {
+      content: '';
+      position: absolute;
+      top: 3px;
+      left: 3px;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: #8B949E;
+      transition: transform 0.2s, background 0.2s;
+    }
+
+    .toggle-wrapper input:checked + .toggle-slider {
+      background: #00C9A7;
+    }
+
+    .toggle-wrapper input:checked + .toggle-slider::after {
+      transform: translateX(18px);
+      background: #0D1117;
+    }
+
+    .toggle-wrapper input:focus-visible + .toggle-slider {
+      outline: 2px solid #00C9A7;
+      outline-offset: 2px;
+    }
+
+    .save-indicator {
+      font-size: 12px;
+      color: #22C55E;
+      text-align: center;
+      margin-top: 12px;
+      opacity: 0;
+      transition: opacity 0.3s;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .toggle-slider,
+      .toggle-slider::after,
+      .save-indicator {
+        transition: none;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="page-header">
+      <span class="logo">&#x2B21;</span>
+      <div>
+        <div class="page-title">Walour Settings</div>
+        <div class="page-subtitle">Configure real-time protection for Solana</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Extension</div>
+
+      <div class="option-row">
+        <div>
+          <div class="option-label">Enable Protection</div>
+          <div class="option-desc">Master toggle for all Walour checks</div>
+        </div>
+        <label class="toggle-wrapper" aria-label="Enable protection">
+          <input type="checkbox" id="toggle-enabled" checked />
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Active Checks</div>
+
+      <div class="option-row">
+        <div>
+          <div class="option-label">URL / Domain Check</div>
+          <div class="option-desc">Detect phishing and known malicious domains</div>
+        </div>
+        <label class="toggle-wrapper" aria-label="URL check">
+          <input type="checkbox" id="toggle-url" checked />
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+
+      <div class="option-row">
+        <div>
+          <div class="option-label">Token Risk Check</div>
+          <div class="option-desc">Flag rug-pull risks and honeypot tokens</div>
+        </div>
+        <label class="toggle-wrapper" aria-label="Token risk check">
+          <input type="checkbox" id="toggle-token" checked />
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+
+      <div class="option-row">
+        <div>
+          <div class="option-label">Transaction Decode</div>
+          <div class="option-desc">AI explanation of what the transaction does</div>
+        </div>
+        <label class="toggle-wrapper" aria-label="Transaction decode">
+          <input type="checkbox" id="toggle-tx" checked />
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+    </div>
+
+    <div class="save-indicator" id="save-indicator">Settings saved</div>
+  </div>
+
+  <script src="dist/options.js" type="module"></script>
+</body>
+</html>

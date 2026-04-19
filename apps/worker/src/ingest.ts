@@ -70,40 +70,37 @@ function withTimeout(promise: Promise<Response>, ms: number): Promise<Response> 
 }
 
 async function fetchChainabuse(): Promise<RawEntry[]> {
+  // Chainabuse GraphQL API — public, no auth required for recent reports
+  const body = JSON.stringify({
+    query: `query { reports(chain: "SOL", limit: 500) { address type { type } reportedUrl } }`,
+  })
   const res = await withTimeout(
-    fetch('https://www.chainabuse.com/api/reports/download?chain=SOL', {
-      headers: { 'User-Agent': 'Walour-Ingest/1.0' },
+    fetch('https://api.chainabuse.com/graphql', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'User-Agent': 'Walour-Ingest/1.0' },
+      body,
     }),
     FETCH_TIMEOUT_MS
   )
 
   if (!res.ok) throw new Error(`Chainabuse HTTP ${res.status}`)
 
-  const text = await res.text()
-  const lines = text.split('\n').slice(1).filter(Boolean) // skip CSV header
-
-  const entries: RawEntry[] = []
-  for (const line of lines) {
-    // Columns: address, type, evidence_url (order may vary — be defensive)
-    const cols = line.split(',').map(c => c.trim().replace(/^"|"$/g, ''))
-    const address = cols[0] ?? ''
-    const rawType = cols[1] ?? ''
-    const evidenceUrl = cols[2] ?? null
-
-    entries.push({
-      address,
-      type: normaliseType(rawType),
-      source: 'chainabuse',
-      evidence_url: evidenceUrl || null,
-    })
+  const json = await res.json() as {
+    data?: { reports?: Array<{ address?: string; type?: { type?: string }; reportedUrl?: string }> }
   }
 
-  return entries
+  return (json?.data?.reports ?? []).map(r => ({
+    address: r.address ?? '',
+    type: normaliseType(r.type?.type),
+    source: 'chainabuse' as const,
+    evidence_url: r.reportedUrl ?? null,
+  }))
 }
 
 async function fetchScamSniffer(): Promise<RawEntry[]> {
+  // ScamSniffer public blacklist — Solana drainer addresses (GitHub raw)
   const res = await withTimeout(
-    fetch('https://api.scamsniffer.io/v1/drainers?chain=solana&limit=500', {
+    fetch('https://raw.githubusercontent.com/scamsniffer/scam-database/main/blacklist/solana.json', {
       headers: { 'User-Agent': 'Walour-Ingest/1.0' },
     }),
     FETCH_TIMEOUT_MS
@@ -111,13 +108,15 @@ async function fetchScamSniffer(): Promise<RawEntry[]> {
 
   if (!res.ok) throw new Error(`ScamSniffer HTTP ${res.status}`)
 
-  const data = await res.json() as { items?: Array<{ address?: string; report_url?: string; type?: string }> }
+  const data = await res.json() as string[] | { addresses?: string[] }
 
-  return (data?.items ?? []).map(item => ({
-    address: item.address ?? '',
-    type: normaliseType(item.type),
+  const addresses = Array.isArray(data) ? data : (data?.addresses ?? [])
+
+  return addresses.map(addr => ({
+    address: typeof addr === 'string' ? addr : '',
+    type: 'drainer',
     source: 'scam_sniffer' as const,
-    evidence_url: item.report_url ?? null,
+    evidence_url: null,
   }))
 }
 
@@ -289,11 +288,12 @@ async function runSource(
 
     // Update outage with actual error
     if (outageId) {
-      await supabase
-        .from('outages')
-        .update({ closed_at: new Date().toISOString(), error_msg: msg })
-        .eq('id', outageId)
-        .catch(() => undefined)
+      try {
+        await supabase
+          .from('outages')
+          .update({ closed_at: new Date().toISOString(), error_msg: msg })
+          .eq('id', outageId)
+      } catch { /* non-fatal */ }
     }
 
     return []

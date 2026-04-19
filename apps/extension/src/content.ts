@@ -44,7 +44,8 @@ if (typeof (window as any).__walour_content_injected === 'undefined') {
   }
 
   function interceptWallet(wallet: WalletProvider): void {
-    if (wallet.__walour_hooked) return
+    // Re-check every call — Phantom re-injects and overwrites our hook
+    if ((wallet.signTransaction as any)?.__walour_intercepted) return
     wallet.__walour_hooked = true
 
     const originalSign = wallet.signTransaction?.bind(wallet)
@@ -61,72 +62,68 @@ if (typeof (window as any).__walour_content_injected === 'undefined') {
           try {
             txBase64 = serializeTx(tx)
           } catch {
-            // If serialization fails, pass through to original wallet
             originalFn(tx, opts).then(resolve).catch(reject)
             return
           }
 
           const hostname = window.location.hostname
+          const reqId = Math.random().toString(36).slice(2)
 
-          try {
-            showOverlay()
-          } catch {
-            // Overlay failure must never block the wallet call
+          try { showOverlay() } catch {
             originalFn(tx, opts).then(resolve).catch(reject)
             return
           }
 
-          let port: chrome.runtime.Port
-          try {
-            port = chrome.runtime.connect({ name: 'walour-scan' })
-          } catch {
-            try { hideOverlay() } catch { /* ignore */ }
-            originalFn(tx, opts).then(resolve).catch(reject)
-            return
+          // MAIN world → bridge via window.postMessage
+          function onBridgeMessage(e: MessageEvent) {
+            if (!e.data || e.data.__walour !== true || e.data.reqId !== reqId) return
+            window.removeEventListener('message', onBridgeMessage)
+            try { handlePortMessage(e.data.msg) } catch { /* ignore */ }
           }
+          window.addEventListener('message', onBridgeMessage)
 
-          // Register decision callback before sending message
           onDecision((allow: boolean) => {
-            try { port.disconnect() } catch { /* port may already be closed */ }
+            window.removeEventListener('message', onBridgeMessage)
             hideOverlay()
-
             if (allow) {
               originalFn(tx, opts).then(resolve).catch(reject)
             } else {
+              window.postMessage({
+                __walour_req: true, reqId: reqId + '_tel', type: 'TELEMETRY',
+                event: {
+                  event_id: reqId,
+                  timestamp: Date.now(),
+                  wallet_pubkey: '',
+                  blocked_tx_hash: '',
+                  drainer_target: null,
+                  block_reason: 'user_blocked',
+                  surface: 'extension',
+                  app_version: '0.1.0',
+                }
+              }, '*')
               reject(new Error('Walour: transaction blocked by user'))
             }
           })
 
-          port.onMessage.addListener((msg: any) => {
-            try {
-              handlePortMessage(msg)
-            } catch {
-              // Never propagate errors to the page
-            }
-          })
-
-          port.onDisconnect.addListener(() => {
-            // Unexpected disconnect — fail open (allow tx through)
-            try { hideOverlay() } catch { /* ignore */ }
-            originalFn(tx, opts).then(resolve).catch(reject)
-          })
-
-          try {
-            port.postMessage({ type: 'SCAN_TX', txBase64, hostname })
-          } catch {
-            try { port.disconnect() } catch { /* ignore */ }
-            hideOverlay()
-            originalFn(tx, opts).then(resolve).catch(reject)
-          }
+          // Send to bridge (isolated world content script)
+          window.postMessage({ __walour_req: true, reqId, type: 'SCAN_TX', txBase64, hostname }, '*')
         })
       }
     }
 
     if (originalSign) {
-      wallet.signTransaction = createInterceptedCall(originalSign) as any
+      const intercepted = createInterceptedCall(originalSign) as any
+      intercepted.__walour_intercepted = true
+      try {
+        Object.defineProperty(wallet, 'signTransaction', { value: intercepted, writable: true, configurable: true })
+      } catch { wallet.signTransaction = intercepted }
     }
     if (originalSignAndSend) {
-      wallet.signAndSendTransaction = createInterceptedCall(originalSignAndSend) as any
+      const intercepted = createInterceptedCall(originalSignAndSend) as any
+      intercepted.__walour_intercepted = true
+      try {
+        Object.defineProperty(wallet, 'signAndSendTransaction', { value: intercepted, writable: true, configurable: true })
+      } catch { wallet.signAndSendTransaction = intercepted }
     }
   }
 

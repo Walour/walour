@@ -1,4 +1,5 @@
 {
+  "devCommand": null,
   "crons": [
     { "path": "/api/ingest", "schedule": "*/15 * * * *" },
     { "path": "/api/purge", "schedule": "0 2 * * *" },

@@ -1,6 +1,6 @@
 use anchor_lang::prelude::*;
 
-declare_id!("11111111111111111111111111111111");
+declare_id!("42xCNeFF1HhTDrLfvJu8ieMxuSfEHQDisK8Fe1hJ4QHL");
 
 // Space constants
 // ThreatReport: 8 discriminator + 32 address + 1 threat_type + 32 source + 128 evidence_url + 1 confidence + 8 first_seen + 8 last_updated + 4 corroborations + 1 bump

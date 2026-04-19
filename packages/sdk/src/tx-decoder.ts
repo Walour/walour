@@ -1,7 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { Connection, VersionedTransaction, PublicKey } from '@solana/web3.js'
 import { cacheGet, cacheSet } from './lib/cache'
-import { withBreaker } from './lib/circuit-breaker'
+import { isOpen, recordSuccess, recordFailure } from './lib/circuit-breaker'
 import { lookupAddress } from './domain-check'
 import { createHash } from 'crypto'
 
@@ -185,30 +185,28 @@ export async function* decodeTransaction(
       : ''
   }`
 
+  const useFallback = isOpen('claude')
   try {
-    const stream = await withBreaker(
-      'claude',
-      () => client.messages.stream({
-        model: 'claude-sonnet-4-6',
-        max_tokens: 300,
-        system: [
-          {
-            type: 'text',
-            text: SYSTEM_PROMPT,
-            // @ts-ignore — cache_control is valid at runtime per Anthropic SDK
-            cache_control: { type: 'ephemeral' },
-          },
-        ],
-        messages: [{ role: 'user', content: userContent }],
-      }),
-      // Fallback: Haiku 4.5
-      () => client.messages.stream({
-        model: 'claude-haiku-4-5',
-        max_tokens: 300,
-        system: SYSTEM_PROMPT,
-        messages: [{ role: 'user', content: userContent }],
-      })
-    )
+    const stream = useFallback
+      ? client.messages.stream({
+          model: 'claude-haiku-4-5',
+          max_tokens: 300,
+          system: SYSTEM_PROMPT,
+          messages: [{ role: 'user', content: userContent }],
+        })
+      : client.messages.stream({
+          model: 'claude-sonnet-4-6',
+          max_tokens: 300,
+          system: [
+            {
+              type: 'text',
+              text: SYSTEM_PROMPT,
+              // @ts-ignore — cache_control is valid at runtime per Anthropic SDK
+              cache_control: { type: 'ephemeral' },
+            },
+          ],
+          messages: [{ role: 'user', content: userContent }],
+        })
 
     let lastChunkTime = Date.now()
 
@@ -226,10 +224,12 @@ export async function* decodeTransaction(
       }
     }
 
+    if (!useFallback) recordSuccess('claude')
     if (fullText.length > 10) {
       await cacheSet(cacheKey, fullText, CACHE_TTL)
     }
   } catch {
+    if (!useFallback) recordFailure('claude')
     yield 'Unable to decode this transaction. Do not sign until you understand what it does.'
   }
 }

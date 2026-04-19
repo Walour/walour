@@ -1,4 +1,4 @@
-import { defineConfig } from 'vite'
+import { defineConfig, loadEnv } from 'vite'
 import { resolve } from 'path'
 import { copyFileSync, mkdirSync, existsSync } from 'fs'
 
@@ -10,19 +10,25 @@ function copyStaticAssets() {
       for (const f of files) {
         if (existsSync(f)) copyFileSync(f, `dist/${f}`)
       }
-      // icons dir — skipped if missing (add manually before CWS submit)
+      // copy icons
       try {
         mkdirSync('dist/icons', { recursive: true })
+        for (const size of [16, 32, 48, 128]) {
+          const src = `icons/icon${size}.png`
+          if (existsSync(src)) copyFileSync(src, `dist/icons/icon${size}.png`)
+        }
       } catch { /* ignore */ }
     },
   }
 }
 
-export default defineConfig({
+export default defineConfig(({ mode }) => {
+  const env = loadEnv(mode, process.cwd(), '')
+  return {
   define: {
-    '__SUPABASE_URL__': JSON.stringify(process.env.VITE_SUPABASE_URL ?? ''),
-    '__SUPABASE_ANON_KEY__': JSON.stringify(process.env.VITE_SUPABASE_ANON_KEY ?? ''),
-    '__API_BASE__': JSON.stringify(process.env.VITE_API_BASE ?? 'https://walour-worker.vercel.app'),
+    '__SUPABASE_URL__': JSON.stringify(env.VITE_SUPABASE_URL ?? ''),
+    '__SUPABASE_ANON_KEY__': JSON.stringify(env.VITE_SUPABASE_ANON_KEY ?? ''),
+    '__API_BASE__': JSON.stringify(env.VITE_API_BASE ?? 'https://walour-worker.vercel.app'),
   },
   build: {
     outDir: 'dist',
@@ -32,6 +38,7 @@ export default defineConfig({
       input: {
         background: resolve(__dirname, 'src/background.ts'),
         content: resolve(__dirname, 'src/content.ts'),
+        bridge: resolve(__dirname, 'src/bridge.ts'),
         popup: resolve(__dirname, 'src/popup.ts'),
         options: resolve(__dirname, 'src/options.ts'),
       },
@@ -46,4 +53,5 @@ export default defineConfig({
     cssCodeSplit: false,
   },
   plugins: [copyStaticAssets()],
+  }
 })

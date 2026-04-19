@@ -4,7 +4,12 @@ import { withBreaker } from './lib/circuit-breaker'
 import { lookupAddress } from './domain-check'
 import type { TokenRiskResult } from './types'
 
-const RAYDIUM_LOCK = new PublicKey('LockrFaYaRmxWaQdxFRNStUWZ8pBudtEoJKxYBQUwcMN')
+const RAYDIUM_LOCK_STR = 'LockrFaYaRmxWaQdxFRNStUWZ8pBudtEoJKxYBQUwcMN'
+let _raydiumLock: PublicKey | null = null
+function getRaydiumLock(): PublicKey {
+  if (!_raydiumLock) _raydiumLock = new PublicKey(RAYDIUM_LOCK_STR)
+  return _raydiumLock
+}
 const CACHE_TTL = 60
 
 function getConnection(): Connection {
@@ -37,7 +42,7 @@ export async function checkTokenRisk(mint: string): Promise<TokenRiskResult> {
 async function checkLpLock(mint: string, connection: Connection): Promise<boolean> {
   // Check if any lock account owned by Raydium Lock program references this mint
   try {
-    const locks = await connection.getProgramAccounts(RAYDIUM_LOCK, {
+    const locks = await connection.getProgramAccounts(getRaydiumLock(), {
       filters: [{ memcmp: { offset: 8, bytes: mint } }],
       dataSlice: { offset: 0, length: 0 },
     })

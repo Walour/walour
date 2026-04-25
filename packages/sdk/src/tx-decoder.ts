@@ -228,7 +228,8 @@ export async function* decodeTransaction(
     if (fullText.length > 10) {
       await cacheSet(cacheKey, fullText, CACHE_TTL)
     }
-  } catch {
+  } catch (err) {
+    console.error('[tx-decoder] Claude error:', err instanceof Error ? err.message : err)
     if (!useFallback) recordFailure('claude')
     yield 'Unable to decode this transaction. Do not sign until you understand what it does.'
   }

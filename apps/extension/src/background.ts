@@ -149,7 +149,7 @@ async function handleScanTx(
 async function handleTelemetry(event: DrainBlockedEvent): Promise<void> {
   // Fire-and-forget — never log keys or seed phrases, only pubkeys
   try {
-    await fetch(`${SUPABASE_URL}/rest/v1/drain_events`, {
+    await fetch(`${SUPABASE_URL}/rest/v1/drain_blocked_events`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -172,6 +172,12 @@ async function handleTelemetry(event: DrainBlockedEvent): Promise<void> {
     // Telemetry failure must never surface to user
   }
 }
+
+chrome.runtime.onMessage.addListener((msg: IncomingMessage, sender) => {
+  if (msg.type === 'TELEMETRY' && sender.id === chrome.runtime.id) {
+    handleTelemetry(msg.event)
+  }
+})
 
 chrome.runtime.onConnect.addListener((port) => {
   if (port.name !== 'walour-scan') return

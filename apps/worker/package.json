@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "echo 'Run: npx vercel dev from this directory'",
+    "dev": "tsx watch src/server.ts",
     "deploy": "vercel deploy --prod"
   },
   "dependencies": {
@@ -13,6 +13,7 @@
     "@walour/sdk": "*"
   },
   "devDependencies": {
+    "@types/node": "^20.0.0",
     "tsx": "^4.21.0",
     "typescript": "^5.4.0"
   }

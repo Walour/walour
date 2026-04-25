@@ -57,7 +57,7 @@ function findLikelyMint(accounts: PublicKey[]): string | null {
 
 export default async function handler(req: Request): Promise<Response> {
   const corsHeaders = {
-    'Access-Control-Allow-Origin': 'chrome-extension://*',
+    'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Methods': 'GET, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type',
   }

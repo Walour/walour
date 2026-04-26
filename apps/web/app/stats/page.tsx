@@ -8,7 +8,7 @@ export const revalidate = 60
 
 interface ThreatRow {
   address: string
-  threat_type: string
+  type: string
   confidence: number
   last_updated: string
 }
@@ -19,7 +19,8 @@ interface ThreatRow {
 
 async function fetchStats() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  // Use service key server-side to bypass RLS for public stats reads
+  const supabaseKey = process.env.SUPABASE_SERVICE_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
   // Return mock data if Supabase not configured
   if (!supabaseUrl || !supabaseKey) {
@@ -42,7 +43,7 @@ async function fetchStats() {
       .eq('confirmed', true),
     supabase
       .from('threat_reports')
-      .select('address, threat_type, confidence, last_updated')
+      .select('address, type, confidence, last_updated')
       .order('confidence', { ascending: false })
       .limit(10),
   ])
@@ -206,7 +207,7 @@ export default async function StatsPage() {
               </tr>
             ) : (
               topThreats.map((row, idx) => {
-                const badgeColor = threatTypeBadge(row.threat_type)
+                const badgeColor = threatTypeBadge(row.type)
                 const barColor = confidenceColor(row.confidence)
                 const pct = Math.round(row.confidence * 100)
                 const date = new Date(row.last_updated).toLocaleDateString('en-US', {
@@ -250,7 +251,7 @@ export default async function StatsPage() {
                           letterSpacing: '0.06em',
                         }}
                       >
-                        {row.threat_type.replace('_', ' ')}
+                        {row.type.replace('_', ' ')}
                       </span>
                     </td>
 

@@ -136,8 +136,12 @@ export default async function handler(
   const provider = new anchor.AnchorProvider(connection, wallet, {
     commitment: 'confirmed',
   })
+  anchor.setProvider(provider)
+  // Inject programId into IDL so Anchor 0.30.x 2-arg constructor can read it
+  ;(PROMOTE_IDL as { address: string }).address = programIdStr
   const programId = new PublicKey(programIdStr)
-  const program = new anchor.Program(PROMOTE_IDL, programId, provider)
+  // Use 2-arg constructor for Anchor 0.30.x; falls back gracefully on 0.29.x
+  const program = new anchor.Program(PROMOTE_IDL as anchor.Idl, provider)
 
   // PDAs
   const [oracleConfigPda] = PublicKey.findProgramAddressSync(

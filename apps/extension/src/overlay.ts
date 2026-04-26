@@ -51,7 +51,7 @@ const OVERLAY_CSS = `
 
   .walour-row {
     display: grid;
-    grid-template-columns: 12px 60px 1fr;
+    grid-template-columns: 12px 80px 1fr;
     align-items: flex-start;
     gap: 8px;
     font-size: 13px;

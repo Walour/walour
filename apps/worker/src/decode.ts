@@ -3,8 +3,11 @@ import { decodeTransaction } from '@walour/sdk'
 
 export const config = { runtime: 'edge' }
 
+const ALLOWED_ORIGIN =
+  process.env.NODE_ENV === 'development' ? '*' : 'chrome-extension://*'
+
 const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Origin': ALLOWED_ORIGIN,
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
   'Access-Control-Allow-Headers': 'Content-Type',
 }

@@ -39,17 +39,27 @@ async function nodeToEdge(
   }
   const body = chunks.length > 0 ? Buffer.concat(chunks) : null
 
-  const webReq = new Request(url.toString(), {
+  // Flatten multi-value headers (Node allows string[], Web Request does not)
+  const flatHeaders: Record<string, string> = {}
+  for (const [k, v] of Object.entries(nodeReq.headers)) {
+    if (v !== undefined) flatHeaders[k] = Array.isArray(v) ? v.join(', ') : v
+  }
+
+  const reqInit: RequestInit = {
     method: nodeReq.method ?? 'GET',
-    headers: nodeReq.headers as Record<string, string>,
-    body: body?.length ? body : undefined,
-    // @ts-ignore — duplex required for streaming bodies in Node fetch
-    duplex: 'half',
-  })
+    headers: flatHeaders,
+  }
+  if (body?.length) {
+    Object.assign(reqInit, { body, duplex: 'half' })
+  }
+  const webReq = new Request(url.toString(), reqInit)
 
   const webRes = await handler(webReq)
 
-  nodeRes.writeHead(webRes.status, Object.fromEntries(webRes.headers))
+  // Flatten response headers (Headers entries() can have multi-values)
+  const resHeaders: Record<string, string> = {}
+  webRes.headers.forEach((v, k) => { resHeaders[k] = v })
+  nodeRes.writeHead(webRes.status, resHeaders)
 
   if (webRes.body) {
     const reader = webRes.body.getReader()

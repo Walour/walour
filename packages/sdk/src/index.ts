@@ -1,4 +1,7 @@
 export { checkTokenRisk } from './token-risk'
+export { getRpcEndpoints, withRpcFallback, pingRpcFast } from './lib/rpc'
 export { decodeTransaction } from './tx-decoder'
 export { checkDomain, lookupAddress } from './domain-check'
 export type { TokenRiskResult, DomainRiskResult, ThreatReport, RiskLevel } from './types'
+export { submitPrivateReportCloak } from './private-report-cloak'
+export type { SubmitPrivateReportCloakOptions, PrivateReportCloakResult } from './private-report-cloak'

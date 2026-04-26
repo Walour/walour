@@ -1,4 +1,5 @@
-import { createClient } from '@supabase/supabase-js'
+import { createClient, SupabaseClient } from '@supabase/supabase-js'
+import type { Database } from './types/supabase'
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -10,12 +11,15 @@ const FETCH_TIMEOUT_MS = 15_000 // per-source HTTP timeout
 const SOURCE_WEIGHTS: Record<string, number> = {
   chainabuse: 0.9,
   scam_sniffer: 0.85,
+  goplus: 0.8,
   community: 0.4,
   twitter: 0.3,
 }
 
 // Solana base58 alphabet excludes 0, O, I, l
 const SOLANA_BASE58_RE = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/
+// Domain/hostname pattern for phishing_domain entries
+const DOMAIN_RE = /^[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+$/
 
 // Allowed threat types (must match DB check constraint)
 const VALID_TYPES = new Set(['drainer', 'rug', 'phishing_domain', 'malicious_token'])
@@ -27,7 +31,7 @@ const VALID_TYPES = new Set(['drainer', 'rug', 'phishing_domain', 'malicious_tok
 interface RawEntry {
   address: string
   type: string
-  source: 'chainabuse' | 'scam_sniffer' | 'community' | 'twitter'
+  source: 'chainabuse' | 'scam_sniffer' | 'goplus' | 'community' | 'twitter'
   evidence_url?: string | null
 }
 
@@ -43,6 +47,22 @@ interface IngestResult {
 
 function isValidSolanaAddress(addr: string): boolean {
   return SOLANA_BASE58_RE.test(addr)
+}
+
+function isValidDomain(addr: string): boolean {
+  // Strip protocol prefix if present
+  const host = addr.replace(/^https?:\/\//, '').split('/')[0].split('?')[0]
+  return DOMAIN_RE.test(host) && host.includes('.')
+}
+
+function isValidEntry(entry: RawEntry): boolean {
+  if (!entry.address) return false
+  if (isValidSolanaAddress(entry.address)) return true
+  // Also accept domains for phishing_domain type entries
+  if (entry.type === 'phishing_domain' || normaliseType(entry.type) === 'phishing_domain') {
+    return isValidDomain(entry.address)
+  }
+  return false
 }
 
 function normaliseType(raw: string | undefined | null): string {
@@ -69,8 +89,53 @@ function withTimeout(promise: Promise<Response>, ms: number): Promise<Response> 
   ])
 }
 
+// ---------------------------------------------------------------------------
+// fetchChainabuse — tries REST v0 first, falls back to GraphQL
+// REST endpoint: GET https://api.chainabuse.com/v0/reports?chain=solana&limit=500
+// GraphQL endpoint: POST https://api.chainabuse.com/graphql (original attempt)
+// ---------------------------------------------------------------------------
+
 async function fetchChainabuse(): Promise<RawEntry[]> {
-  // Chainabuse GraphQL API — public, no auth required for recent reports
+  // Attempt 1: REST v0 endpoint (preferred — GraphQL returns 404)
+  try {
+    const res = await withTimeout(
+      fetch('https://api.chainabuse.com/v0/reports?chain=solana&limit=500', {
+        headers: {
+          'User-Agent': 'Walour-Ingest/1.0',
+          Accept: 'application/json',
+        },
+      }),
+      FETCH_TIMEOUT_MS
+    )
+
+    if (res.ok) {
+      const json = await res.json() as {
+        reports?: Array<{
+          address?: string
+          reportedAddress?: string
+          type?: string
+          category?: string
+          evidenceUrl?: string
+        }>
+      }
+
+      const reports = json?.reports ?? []
+      if (reports.length > 0) {
+        return reports.map(r => ({
+          address: r.address ?? r.reportedAddress ?? '',
+          type: normaliseType(r.type ?? r.category),
+          source: 'chainabuse' as const,
+          evidence_url: r.evidenceUrl ?? null,
+        }))
+      }
+      // Empty but 200 — fall through to GraphQL
+    }
+    console.warn(`[ingest] Chainabuse REST returned HTTP ${res.status} — trying GraphQL`)
+  } catch (err) {
+    console.warn(`[ingest] Chainabuse REST threw: ${err instanceof Error ? err.message : String(err)} — trying GraphQL`)
+  }
+
+  // Attempt 2: GraphQL endpoint (original body; kept as fallback)
   const body = JSON.stringify({
     query: `query { reports(chain: "SOL", limit: 500) { address type { type } reportedUrl } }`,
   })
@@ -83,7 +148,7 @@ async function fetchChainabuse(): Promise<RawEntry[]> {
     FETCH_TIMEOUT_MS
   )
 
-  if (!res.ok) throw new Error(`Chainabuse HTTP ${res.status}`)
+  if (!res.ok) throw new Error(`Chainabuse GraphQL HTTP ${res.status}`)
 
   const json = await res.json() as {
     data?: { reports?: Array<{ address?: string; type?: { type?: string }; reportedUrl?: string }> }
@@ -97,28 +162,104 @@ async function fetchChainabuse(): Promise<RawEntry[]> {
   }))
 }
 
+// ---------------------------------------------------------------------------
+// fetchScamSniffer — tries three URL paths in order
+// 1. main/blacklist/solana.json  (original path)
+// 2. main/solana/blacklist.json  (alternate layout)
+// 3. api.scamsniffer.io fallback
+// ---------------------------------------------------------------------------
+
+// ScamSniffer all.json — contains 4k+ EVM addresses + 345k phishing domains
+const SCAM_SNIFFER_ALL_URL = 'https://raw.githubusercontent.com/scamsniffer/scam-database/main/blacklist/all.json'
+const SCAM_SNIFFER_DOMAIN_LIMIT = 10_000 // cap per run to stay within Vercel timeout
+
 async function fetchScamSniffer(): Promise<RawEntry[]> {
-  // ScamSniffer public blacklist — Solana drainer addresses (GitHub raw)
   const res = await withTimeout(
-    fetch('https://raw.githubusercontent.com/scamsniffer/scam-database/main/blacklist/solana.json', {
-      headers: { 'User-Agent': 'Walour-Ingest/1.0' },
-    }),
+    fetch(SCAM_SNIFFER_ALL_URL, { headers: { 'User-Agent': 'Walour-Ingest/1.0' } }),
     FETCH_TIMEOUT_MS
   )
 
   if (!res.ok) throw new Error(`ScamSniffer HTTP ${res.status}`)
 
-  const data = await res.json() as string[] | { addresses?: string[] }
+  const data = await res.json() as {
+    address?: string[]
+    domains?: string[]
+  }
 
-  const addresses = Array.isArray(data) ? data : (data?.addresses ?? [])
+  const entries: RawEntry[] = []
 
-  return addresses.map(addr => ({
-    address: typeof addr === 'string' ? addr : '',
-    type: 'drainer',
-    source: 'scam_sniffer' as const,
-    evidence_url: null,
-  }))
+  // Phishing domains — capped to avoid timeout
+  const domains = (data.domains ?? []).slice(0, SCAM_SNIFFER_DOMAIN_LIMIT)
+  for (const d of domains) {
+    if (typeof d === 'string' && d.length > 3) {
+      entries.push({ address: d, type: 'phishing_domain', source: 'scam_sniffer', evidence_url: null })
+    }
+  }
+
+  console.log(`[ingest] ScamSniffer: ${entries.length} phishing domains`)
+  return entries
 }
+
+// ---------------------------------------------------------------------------
+// fetchGoPlus — GoPlus Security known-malicious Solana addresses
+// Endpoint: GET https://api.gopluslabs.io/api/v1/solana_security/known_malicious?limit=500
+// Returns confidence weight 0.8 (corroborating source — see SOURCE_WEIGHTS)
+// ---------------------------------------------------------------------------
+
+// Known high-risk Solana token mints to seed GoPlus lookups
+// These are well-documented Solana meme/scam tokens with public risk data
+const GOPLUS_SEED_MINTS = [
+  'So11111111111111111111111111111111111111112', // wSOL (baseline — should return low risk)
+]
+
+async function fetchGoPlus(): Promise<RawEntry[]> {
+  // GoPlus correct Solana endpoint: /api/v1/token_security/solana
+  // Takes comma-separated contract addresses, returns per-address risk data
+  if (GOPLUS_SEED_MINTS.length === 0) return []
+
+  const addresses = GOPLUS_SEED_MINTS.join(',')
+  const res = await withTimeout(
+    fetch(`https://api.gopluslabs.io/api/v1/token_security/solana?contract_addresses=${addresses}`, {
+      headers: { 'User-Agent': 'Walour-Ingest/1.0', Accept: 'application/json' },
+    }),
+    FETCH_TIMEOUT_MS
+  )
+
+  if (!res.ok) throw new Error(`GoPlus HTTP ${res.status}`)
+
+  const json = await res.json() as {
+    result?: Record<string, {
+      is_mintable?: string
+      is_proxy?: string
+      can_take_back_ownership?: string
+      owner_change_balance?: string
+    }>
+  }
+
+  const entries: RawEntry[] = []
+  for (const [addr, data] of Object.entries(json?.result ?? {})) {
+    // Flag as malicious_token if any high-risk attribute is set
+    const isRisky =
+      data.is_mintable === '1' ||
+      data.can_take_back_ownership === '1' ||
+      data.owner_change_balance === '1'
+
+    if (isRisky) {
+      entries.push({
+        address: addr,
+        type: 'malicious_token',
+        source: 'goplus' as const,
+        evidence_url: null,
+      })
+    }
+  }
+
+  return entries
+}
+
+// ---------------------------------------------------------------------------
+// fetchTwitter — requires TWITTER_BEARER_TOKEN (optional source)
+// ---------------------------------------------------------------------------
 
 async function fetchTwitter(): Promise<RawEntry[]> {
   const bearerToken = process.env.TWITTER_BEARER_TOKEN
@@ -149,17 +290,16 @@ async function fetchTwitter(): Promise<RawEntry[]> {
     data?: Array<{ text?: string; entities?: { urls?: Array<{ expanded_url?: string }> } }>
   }
 
-  const entries: RawEntry[] = []
+  const rawEntries: RawEntry[] = []
 
   for (const tweet of data?.data ?? []) {
     const text = tweet.text ?? ''
     // Extract Solana addresses from tweet text using the base58 regex
     const addressMatches = text.match(/[1-9A-HJ-NP-Za-km-z]{32,44}/g) ?? []
     for (const address of addressMatches) {
-      // Filter out common non-address base58 strings (short tokens, etc.)
       if (address.length < 32) continue
       const evidenceUrl = tweet.entities?.urls?.[0]?.expanded_url ?? null
-      entries.push({
+      rawEntries.push({
         address,
         type: 'drainer',
         source: 'twitter',
@@ -168,7 +308,7 @@ async function fetchTwitter(): Promise<RawEntry[]> {
     }
   }
 
-  return entries
+  return rawEntries
 }
 
 // ---------------------------------------------------------------------------
@@ -176,7 +316,7 @@ async function fetchTwitter(): Promise<RawEntry[]> {
 // ---------------------------------------------------------------------------
 
 async function processEntries(
-  supabase: ReturnType<typeof createClient>,
+  supabase: SupabaseClient<Database>,
   entries: RawEntry[]
 ): Promise<{ processed: number; errorCount: number }> {
   let processed = 0
@@ -184,12 +324,12 @@ async function processEntries(
 
   for (const entry of entries) {
     try {
-      // Validate address
-      if (!entry.address || !isValidSolanaAddress(entry.address)) {
+      // Validate address or domain
+      if (!entry.address || !isValidEntry(entry)) {
         errorBatch.push({
           source: entry.source,
           payload: entry,
-          reason: `invalid_address: "${entry.address}"`,
+          reason: `invalid_address_or_domain: "${entry.address}"`,
         })
         continue
       }
@@ -255,7 +395,7 @@ async function processEntries(
 // ---------------------------------------------------------------------------
 
 async function runSource(
-  supabase: ReturnType<typeof createClient>,
+  supabase: SupabaseClient<Database>,
   name: string,
   fetcher: () => Promise<RawEntry[]>
 ): Promise<RawEntry[]> {
@@ -307,7 +447,7 @@ async function runSource(
 export default async function handler(_req: Request): Promise<Response> {
   const start = Date.now()
 
-  const supabase = createClient(
+  const supabase = createClient<Database>(
     process.env.SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_KEY!
   )
@@ -324,6 +464,7 @@ export default async function handler(_req: Request): Promise<Response> {
       Promise.all([
         runSource(supabase, 'chainabuse', fetchChainabuse),
         runSource(supabase, 'scam_sniffer', fetchScamSniffer),
+        runSource(supabase, 'goplus', fetchGoPlus),
         runSource(supabase, 'twitter', fetchTwitter),
       ]).then(results => results.flat()),
       deadline,

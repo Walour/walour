@@ -33,7 +33,10 @@ if (typeof (window as any).__walour_content_injected === 'undefined') {
   _freeze(WALLET_ACCESSORS)
 
   function serializeTx(tx: any): string {
-    const bytes: Uint8Array = tx.serialize()
+    // requireAllSignatures: false — tx is unsigned at intercept time
+    const bytes: Uint8Array = tx.serialize
+      ? tx.serialize({ requireAllSignatures: false, verifySignatures: false })
+      : tx.message?.serialize?.() ?? tx
     // Process in chunks to avoid call stack overflow on large transactions
     const CHUNK = 8192
     let binary = ''

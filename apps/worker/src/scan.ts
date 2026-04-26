@@ -1,5 +1,5 @@
 import { VersionedTransaction, PublicKey } from '@solana/web3.js'
-import { checkDomain, checkTokenRisk } from '@walour/sdk'
+import { checkDomain, checkTokenRisk, lookupAddress } from '@walour/sdk'
 
 export const config = { runtime: 'edge' }
 
@@ -101,13 +101,37 @@ export default async function handler(req: Request): Promise<Response> {
     }
   }
 
+  // Check all non-program tx accounts against the threat corpus
+  let drainerHit: { address: string; confidence: number } | null = null
+  if (txParam) {
+    try {
+      const txBytes = Buffer.from(txParam, 'base64')
+      const tx = VersionedTransaction.deserialize(txBytes)
+      const accounts = extractAccounts(tx)
+      const nonProgram = accounts.filter(k => !KNOWN_PROGRAMS.has(k.toBase58()))
+      const hits = await Promise.all(nonProgram.map(k => lookupAddress(k.toBase58())))
+      const first = hits.find(h => h !== null)
+      if (first) drainerHit = { address: first.address, confidence: first.confidence }
+    } catch { /* non-fatal */ }
+  }
+
   const [domainResult, tokenResult] = await Promise.all([
     checkDomain(hostname),
     mintAddress ? checkTokenRisk(mintAddress) : Promise.resolve(null),
   ])
 
+  // If a tx account is a known drainer, upgrade domain result to RED
+  const finalDomain = drainerHit
+    ? {
+        level: 'RED',
+        reason: `Transaction destination ${drainerHit.address.slice(0, 8)}... is a known threat (confidence ${Math.round(drainerHit.confidence * 100)}%)`,
+        confidence: drainerHit.confidence,
+        source: 'corpus',
+      }
+    : domainResult
+
   return new Response(
-    JSON.stringify({ domain: domainResult, token: tokenResult }),
+    JSON.stringify({ domain: finalDomain, token: tokenResult }),
     {
       status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

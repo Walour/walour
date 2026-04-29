@@ -10,3 +10,6 @@ target/
 *.tgz
 .next/
 apps/extension/dist/
+.anchor/
+apps/web/tsconfig.tsbuildinfo
+*.tsbuildinfo

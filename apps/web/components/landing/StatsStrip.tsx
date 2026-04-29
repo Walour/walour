@@ -60,12 +60,12 @@ export default function StatsStrip({
   ]
 
   return (
-    <div className="container">
+    <div className="container" style={{ paddingBottom: 48 }}>
       <div
         className="stats-strip glass-subtle stats-strip-responsive"
         style={{
           borderRadius: 'var(--radius-md)',
-          marginTop: 40,
+          marginTop: 0,
           border: '1px solid var(--border)',
           display: 'grid',
           gridTemplateColumns: 'repeat(3, 1fr)',

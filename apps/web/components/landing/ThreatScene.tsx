@@ -14,44 +14,40 @@ export default function ThreatScene() {
 
   return (
     <section ref={ref} className="threat-scene">
-      <div className="container">
-        <h2 className="threat-scene-headline">
-          <span style={{ color: 'var(--danger)' }}>$3.2M</span> drained from Solana wallets this month.
-        </h2>
-        <p className="threat-scene-sub">
-          Most victims signed it themselves. Here&apos;s what&apos;s happening right now.
-        </p>
+      <div className="container threat-scene-inner">
+        <header className="threat-scene-header">
+          <h2 className="threat-scene-headline">
+            <span style={{ color: 'var(--danger)' }}>$3.2M</span> drained from Solana wallets this month.
+          </h2>
+          <p className="threat-scene-sub">
+            Most victims signed it themselves. Here&apos;s what&apos;s happening right now.
+          </p>
+        </header>
 
-        <div className="threat-layout">
-          <div className="aggregate-rail">
-            <div className="aggregate-cell glass-subtle">
-              <div className="aggregate-value" style={{ color: 'var(--danger)' }}>
-                <CountUp to={73} trigger={inView} />%
-              </div>
-              <div className="aggregate-label">
-                Solana users exposed to malicious approvals
-              </div>
+        <div className="threat-stats-row">
+          <div className="threat-stat">
+            <div className="threat-stat-value" style={{ color: 'var(--danger)' }}>
+              1 in <CountUp to={14} trigger={inView} />
             </div>
-            <div className="aggregate-cell glass-subtle">
-              <div className="aggregate-value" style={{ color: 'var(--warning)' }}>
-                $3.2M
-              </div>
-              <div className="aggregate-label">
-                Drained this month via approved transactions
-              </div>
-            </div>
-            <div className="aggregate-cell glass-subtle">
-              <div className="aggregate-value" style={{ color: 'var(--accent)' }}>
-                <CountUp to={4} trigger={inView} />.2s
-              </div>
-              <div className="aggregate-label">
-                Average Walour detection latency
-              </div>
-            </div>
+            <div className="threat-stat-label">wallets hit a drainer this month</div>
           </div>
-
-          <ThreatFeed />
+          <div className="threat-stat-divider" aria-hidden="true" />
+          <div className="threat-stat">
+            <div className="threat-stat-value" style={{ color: 'var(--warning)' }}>
+              $<CountUp to={847} trigger={inView} />
+            </div>
+            <div className="threat-stat-label">average loss per drained wallet</div>
+          </div>
+          <div className="threat-stat-divider" aria-hidden="true" />
+          <div className="threat-stat">
+            <div className="threat-stat-value" style={{ color: 'var(--accent)' }}>
+              &lt;<CountUp to={400} trigger={inView} />ms
+            </div>
+            <div className="threat-stat-label">to warn you before you sign</div>
+          </div>
         </div>
+
+        <ThreatFeed />
       </div>
     </section>
   )

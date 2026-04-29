@@ -43,7 +43,7 @@ export default function Hero({ threatsIndexed }: HeroProps) {
     <section
       ref={sectionRef}
       style={{
-        padding: 'clamp(40px, 5vw, 64px) 0 80px',
+        padding: 'clamp(28px, 4vw, 48px) 0 48px',
         position: 'relative',
         overflow: 'hidden',
       }}

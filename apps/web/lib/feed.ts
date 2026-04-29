@@ -1,39 +1,19 @@
-export type FeedVerdict = 'BLOCKED' | 'DRAINED' | 'SAFE'
+export type FeedVerdict = 'BLOCKED' | 'DRAINED'
 
 export interface FeedEntry {
   id: string
-  ts: string
+  ts: number
   verdict: FeedVerdict
-  address: string
-  eventType: string
+  story: string
   amount?: string
+  // kept for backward compat
+  address?: string
+  eventType?: string
 }
 
 const BASE58 = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz'
 
-const EVENT_TYPES_BLOCKED = [
-  'drain attempt',
-  'malicious approval',
-  'unlimited SPL approve',
-  'rug pull token',
-  'phishing signature',
-  'fake mint request',
-]
-const EVENT_TYPES_DRAINED = [
-  'wallet drained',
-  'unauthorized transfer',
-  'rug confirmed',
-]
-const EVENT_TYPES_SAFE = [
-  'verified contract',
-  'whitelisted dApp',
-  'safe approval',
-]
-
-function rand(n: number) {
-  return Math.floor(Math.random() * n)
-}
-
+function rand(n: number) { return Math.floor(Math.random() * n) }
 function randBase58(len: number) {
   let s = ''
   for (let i = 0; i < len; i++) s += BASE58[rand(BASE58.length)]
@@ -44,65 +24,74 @@ export function generateAddress(): string {
   return `${randBase58(4)}...${randBase58(4)}`
 }
 
-function generateAmount(verdict: FeedVerdict): string | undefined {
-  if (verdict === 'SAFE') return undefined
-  const amount = (Math.random() * 80 + 0.5).toFixed(1)
-  return `${amount} SOL`
-}
+const BLOCKED_STORIES = [
+  'Fake airdrop site tried to drain a wallet',
+  'Phishing dApp requested unlimited SPL approval',
+  'Spoofed Jupiter clone attempted a hidden transfer',
+  'Malicious mint disguised as an NFT claim',
+  'Drainer contract masked as a token swap',
+  'Fake Magic Eden listing tried to siphon SOL',
+  'Cloned wallet popup requested a blind signature',
+  'Rug token contract tried to gain transfer rights',
+  'Compromised Discord link triggered a drain attempt',
+  'Fake staking page requested account ownership',
+  'Unknown contract tried to move all SPL tokens',
+  'Counterfeit Phantom site asked to sign a drainer',
+]
 
-function pickEvent(verdict: FeedVerdict): string {
-  const list =
-    verdict === 'BLOCKED'
-      ? EVENT_TYPES_BLOCKED
-      : verdict === 'DRAINED'
-        ? EVENT_TYPES_DRAINED
-        : EVENT_TYPES_SAFE
+const DRAINED_STORIES = [
+  'Wallet signed a malicious approval before install',
+  'User signed a drainer transaction on a fake site',
+  'Approval to a known drainer went through unprotected',
+  'Wallet drained via a spoofed claim page',
+  'Funds lost to a copycat dApp signature',
+]
+
+function pickStory(verdict: FeedVerdict): string {
+  const list = verdict === 'BLOCKED' ? BLOCKED_STORIES : DRAINED_STORIES
   return list[rand(list.length)]
 }
 
 function pickVerdict(): FeedVerdict {
-  const r = Math.random()
-  if (r < 0.78) return 'BLOCKED'
-  if (r < 0.9) return 'SAFE'
-  return 'DRAINED'
-}
-
-function pad2(n: number) {
-  return n.toString().padStart(2, '0')
-}
-
-function timestampForOffset(offsetSeconds: number): string {
-  const now = new Date(Date.now() - offsetSeconds * 1000)
-  return `${pad2(now.getHours())}:${pad2(now.getMinutes())}:${pad2(now.getSeconds())}`
+  return Math.random() < 0.82 ? 'BLOCKED' : 'DRAINED'
 }
 
 export function generateEntry(index: number): FeedEntry {
   const verdict = pickVerdict()
+  const sol = (Math.random() * 80 + 0.5).toFixed(1)
   return {
     id: `${Date.now()}-${index}-${Math.random().toString(36).slice(2, 7)}`,
-    ts: timestampForOffset(0),
+    ts: Date.now(),
     verdict,
-    address: generateAddress(),
-    eventType: pickEvent(verdict),
-    amount: generateAmount(verdict),
+    story: pickStory(verdict),
+    amount: `${sol} SOL`,
   }
 }
 
 function generateSeedEntry(index: number, secondsAgo: number): FeedEntry {
   const verdict = pickVerdict()
+  const sol = (Math.random() * 80 + 0.5).toFixed(1)
   return {
     id: `seed-${index}`,
-    ts: timestampForOffset(secondsAgo),
+    ts: Date.now() - secondsAgo * 1000,
     verdict,
-    address: generateAddress(),
-    eventType: pickEvent(verdict),
-    amount: generateAmount(verdict),
+    story: pickStory(verdict),
+    amount: `${sol} SOL`,
   }
 }
 
-export const SEED_ENTRIES: FeedEntry[] = Array.from({ length: 25 }, (_, i) =>
-  generateSeedEntry(i, (i + 1) * 7)
+export const SEED_ENTRIES: FeedEntry[] = Array.from({ length: 12 }, (_, i) =>
+  generateSeedEntry(i, (i + 1) * 11)
 )
+
+export function relativeTime(ts: number, now: number = Date.now()): string {
+  const diff = Math.max(0, Math.floor((now - ts) / 1000))
+  if (diff < 3) return 'just now'
+  if (diff < 60) return `${diff}s ago`
+  const m = Math.floor(diff / 60)
+  if (m < 60) return `${m}m ago`
+  return `${Math.floor(m / 60)}h ago`
+}
 
 export function scrambleAddress(final: string, progress: number): string {
   const len = final.length
@@ -110,11 +99,8 @@ export function scrambleAddress(final: string, progress: number): string {
   let out = ''
   for (let i = 0; i < len; i++) {
     const ch = final[i]
-    if (i < revealCount || ch === '.') {
-      out += ch
-    } else {
-      out += BASE58[rand(BASE58.length)]
-    }
+    if (i < revealCount || ch === '.') out += ch
+    else out += BASE58[rand(BASE58.length)]
   }
   return out
 }

@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import ResponsePanel from './ResponsePanel'
 
 interface CodeLine {
   type: 'comment' | 'prompt' | 'plain'
@@ -32,7 +31,6 @@ if (result.risk === 'HIGH') dontSign()`
 export default function SdkBlock() {
   const ref = useRef<HTMLDivElement>(null)
   const [revealed, setRevealed] = useState(false)
-  const [responseIn, setResponseIn] = useState(false)
   const [copied, setCopied] = useState(false)
 
   useEffect(() => {
@@ -50,13 +48,6 @@ export default function SdkBlock() {
     obs.observe(el)
     return () => obs.disconnect()
   }, [])
-
-  useEffect(() => {
-    if (!revealed) return
-    const totalReveal = SDK_LINES.length * 80 + 400
-    const t = setTimeout(() => setResponseIn(true), totalReveal)
-    return () => clearTimeout(t)
-  }, [revealed])
 
   function handleCopy() {
     navigator.clipboard.writeText(COPY_TEXT).then(() => {
@@ -151,7 +142,6 @@ export default function SdkBlock() {
               </div>
             </div>
 
-            <ResponsePanel visible={responseIn} />
           </div>
         </div>
       </div>

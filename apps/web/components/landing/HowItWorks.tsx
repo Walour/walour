@@ -162,7 +162,7 @@ export default function HowItWorks() {
           >
             <div className="step-num">01</div>
             <div className="step-visual-area">
-              <div style={{ textAlign: 'center' }}>
+              <div style={{ textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
                 <svg width="64" height="64" viewBox="0 0 64 64" fill="none" aria-hidden="true">
                   <rect
                     x="8"
@@ -235,8 +235,12 @@ export default function HowItWorks() {
             style={{ transitionDelay: '300ms' }}
           >
             <div className="step-num">03</div>
-            <div className="step-visual-area" style={{ alignItems: 'flex-start', paddingTop: 8 }}>
-              <ExtensionPopup loop initialState="scanning" />
+            <div className="step-visual-area">
+              <div className="step-popup-wrap">
+                <div className="step-popup-scale">
+                  <ExtensionPopup loop initialState="scanning" />
+                </div>
+              </div>
             </div>
             <div>
               <h3 className="step-title">Protected</h3>

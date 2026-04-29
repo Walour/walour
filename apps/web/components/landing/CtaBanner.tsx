@@ -1,6 +1,6 @@
 export default function CtaBanner() {
   return (
-    <section style={{ padding: '96px 0 0' }}>
+    <section style={{ padding: '48px 0 0' }}>
       <div className="container">
         <div className="cta-inner glass">
           <div className="cta-sweep-layer" aria-hidden="true" />

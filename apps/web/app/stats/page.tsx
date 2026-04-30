@@ -11,7 +11,7 @@ import { fetchStats } from '@/lib/queries'
 export const dynamic = 'force-dynamic'
 
 export const metadata = {
-  title: 'Live Stats — Walour',
+  title: 'Live Stats | Walour',
   description: 'Network-wide threat activity updated continuously from the Walour oracle.',
 }
 

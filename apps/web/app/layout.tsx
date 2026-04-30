@@ -7,8 +7,8 @@ import '@/styles/globals.css'
 
 export const metadata: Metadata = {
   title: {
-    default: 'Walour — Solana Security Oracle',
-    template: '%s — Walour',
+    default: 'Walour | Solana Security Oracle',
+    template: '%s | Walour',
   },
   description: 'Real-time, composable threat intelligence for Solana. Protect your users before they sign.',
   metadataBase: new URL('https://walour.com'),

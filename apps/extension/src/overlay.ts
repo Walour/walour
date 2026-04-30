@@ -569,8 +569,8 @@ export function setVerdict(
   if (labelEl) {
     labelEl.className = 'walour-verdict-label ' + (isRisk ? 'danger' : isSafe ? 'safe' : 'scanning')
     labelEl.textContent =
-      level === 'RED'   ? 'High risk — drainer detected' :
-      level === 'AMBER' ? 'Caution — review before signing' :
+      level === 'RED'   ? 'High risk: drainer detected' :
+      level === 'AMBER' ? 'Caution: review before signing' :
       level === 'GREEN' ? 'Looks safe' :
                           'Scanning…'
   }

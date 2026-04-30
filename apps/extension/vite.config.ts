@@ -10,6 +10,12 @@ function copyStaticAssets() {
       for (const f of files) {
         if (existsSync(f)) copyFileSync(f, `dist/${f}`)
       }
+      // copy shared design tokens (Phase 4) — fail loudly if missing
+      const tokensSrc = resolve(__dirname, '../../packages/tokens/tokens.css')
+      if (!existsSync(tokensSrc)) {
+        throw new Error(`[copy-static] packages/tokens/tokens.css not found at ${tokensSrc} — popup will be unstyled. Run \`pnpm -w build\` for the tokens package or verify Wave 1 created it.`)
+      }
+      copyFileSync(tokensSrc, 'dist/tokens.css')
       // copy icons
       try {
         mkdirSync('dist/icons', { recursive: true })

@@ -77,6 +77,11 @@ function renderVerdict(scan: ScanResult): void {
   const band = $('verdict-band')
   if (band) {
     band.className = 'ext-verdict ' + (isRisk ? 'is-risk' : isSafe ? 'is-safe' : '')
+    // scale-ping on entry
+    if (!band.classList.contains('ping')) {
+      band.classList.add('ping')
+      setTimeout(() => band.classList.remove('ping'), 280)
+    }
   }
 
   const label = $('verdict-label')
@@ -215,6 +220,9 @@ function wireIdle(): void {
         checks[key] = !checks[key]
         chrome.storage.sync.set({ checks })
         btn.classList.toggle('on', checks[key])
+        // scale-ping (CSS rule .ext-toggle.ping was added in Task 1)
+        btn.classList.add('ping')
+        setTimeout(() => btn.classList.remove('ping'), 200)
       })
     })
   }

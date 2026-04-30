@@ -11,7 +11,7 @@
 const _freeze = Object.freeze
 const _origPromise = Promise
 
-import { showOverlay, hideOverlay, updateRow, appendStream, onDecision, setVerdict } from './overlay'
+import { showOverlay, hideOverlay, updateRow, appendStream, onDecision, setVerdict, updateSimulation, SimDelta } from './overlay'
 
 // Guard: only inject once per page load
 if (typeof (window as any).__walour_content_injected === 'undefined') {
@@ -76,6 +76,30 @@ if (typeof (window as any).__walour_content_injected === 'undefined') {
             originalFn(tx, opts).then(resolve).catch(reject)
             return
           }
+
+          // Fire-and-forget simulation — 2s timeout, never blocks overlay
+          ;(async () => {
+            try {
+              const controller = new AbortController()
+              const timeoutId = setTimeout(() => controller.abort(), 2_000)
+              const apiBase = (import.meta.env.VITE_API_BASE as string) ?? 'http://localhost:3001'
+              const res = await fetch(`${apiBase}/api/simulate`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ txBase64 }),
+                signal: controller.signal,
+              })
+              clearTimeout(timeoutId)
+              if (res.ok) {
+                const data = await res.json() as { success: boolean; solChangeLamports: number; deltas: SimDelta[] }
+                if (data.success && (data.deltas.length > 0 || data.solChangeLamports !== 0)) {
+                  updateSimulation(data.deltas, data.solChangeLamports)
+                }
+              }
+            } catch {
+              // Timeout or network error — skip silently
+            }
+          })()
 
           // MAIN world → bridge via window.postMessage
           function onBridgeMessage(e: MessageEvent) {

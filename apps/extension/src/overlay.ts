@@ -616,13 +616,15 @@ export function setVerdict(
     }
   }
 
-  // Update allow button visual: ghost vs hold variant
+  // Update allow button visual and label based on verdict
   if (allowBtnRef) {
     if (level === 'RED') {
       allowBtnRef.className = 'walour-btn walour-btn-hold'
+      allowBtnRef.textContent = 'Sign anyway'
       allowBtnRef.setAttribute('aria-label', 'Press and hold to sign anyway')
     } else {
       allowBtnRef.className = 'walour-btn walour-btn-ghost'
+      allowBtnRef.textContent = level === 'GREEN' ? 'Sign' : 'Sign anyway'
       allowBtnRef.removeAttribute('aria-label')
       allowBtnRef.style.setProperty('--hold-pct', '0%')
     }

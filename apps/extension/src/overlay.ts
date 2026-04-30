@@ -6,11 +6,19 @@
 const ROOT_ID = 'walour-root'
 const SVG_NS = 'http://www.w3.org/2000/svg'
 
+export interface SimDelta {
+  mint: string
+  change: number
+  decimals: number
+  uiChange: string
+}
+
 let shadowRoot: ShadowRoot | null = null
 let decisionCallback: ((allow: boolean) => void) | null = null
 let streamTextNode: Text | null = null
 let backdropEl: HTMLDivElement | null = null
 let allowBtnRef: HTMLButtonElement | null = null
+let simRowRef: HTMLElement | null = null
 let currentVerdict: 'GREEN' | 'AMBER' | 'RED' | 'UNKNOWN' = 'UNKNOWN'
 
 let holdTimer: ReturnType<typeof setTimeout> | null = null
@@ -464,6 +472,12 @@ export function showOverlay(): void {
   rowsContainer.appendChild(tokenRow.row)
   rowsContainer.appendChild(txRow.row)
 
+  // Simulation delta row
+  const simRow = document.createElement('div')
+  simRow.className = 'walour-sim-row'
+  simRow.style.cssText = 'display:none; padding:6px 12px; font-size:12px; color:var(--text-muted,#8B949E); letter-spacing:0.02em; font-family:inherit;'
+  simRowRef = simRow
+
   // Actions
   const actions = document.createElement('div')
   actions.className = 'walour-actions'
@@ -492,6 +506,7 @@ export function showOverlay(): void {
   overlay.appendChild(meter)
   overlay.appendChild(threats)
   overlay.appendChild(rowsContainer)
+  overlay.appendChild(simRow)
   overlay.appendChild(actions)
 
   shadowRoot.appendChild(overlay)
@@ -508,6 +523,7 @@ export function hideOverlay(): void {
   decisionCallback = null
   backdropEl = null
   allowBtnRef = null
+  simRowRef = null
   currentVerdict = 'UNKNOWN'
 }
 
@@ -638,4 +654,21 @@ export function setVerdict(
       setTimeout(() => card.classList.remove('ping'), 320)
     }
   }
+}
+
+export function updateSimulation(deltas: SimDelta[], solChangeLamports: number): void {
+  if (!simRowRef) return
+  const parts: string[] = []
+  if (solChangeLamports !== 0) {
+    const sol = solChangeLamports / 1_000_000_000
+    parts.push((sol >= 0 ? '+' : '') + sol.toFixed(4) + ' SOL')
+  }
+  for (const d of deltas) {
+    parts.push(d.uiChange + ' ' + d.mint.slice(0, 4) + '...')
+  }
+  if (parts.length === 0) return
+  simRowRef.textContent = parts.join('   ')
+  simRowRef.style.display = 'block'
+  const hasLoss = solChangeLamports < 0 || deltas.some(d => d.change < 0)
+  simRowRef.style.color = hasLoss ? 'var(--danger,#EF4444)' : 'var(--safe,#22C55E)'
 }

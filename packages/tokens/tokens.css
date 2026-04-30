@@ -405,15 +405,38 @@
   80% { transform: translateX(2px); }
 }
 
+/* ---------- Phase 4 Wave 5 micro-interactions ---------- */
+@keyframes scalePing {
+  0%   { transform: scale(0.94); }
+  60%  { transform: scale(1.02); }
+  100% { transform: scale(1.0); }
+}
+
+.ext-verdict.ping { animation: scalePing 240ms ease-out 1; }
+.ext-btn.ping     { animation: scalePing 180ms ease-out 1; }
+.ext-toggle.ping  { animation: scalePing 200ms ease-out 1; }
+
+.ext-toggle           { transition: transform 180ms ease-out, background 180ms ease, color 180ms ease, border-color 180ms ease; }
+.ext-toggle:active    { transform: scale(0.94); transition: transform 90ms ease-out; }
+.ext-lookup-btn:active { transform: scale(0.96); }
+.ext-btn:active        { transform: translateY(1px); }
+
 /* ---------- Reduced motion ---------- */
 @media (prefers-reduced-motion: reduce) {
   .ext-live-dot,
   .ext-check-dot.checking,
   .ext-logo-wrap.scanning,
   .ext-threat-item,
-  .ext-check-row { animation: none !important; }
+  .ext-check-row,
+  .ext-verdict.ping,
+  .ext-btn.ping,
+  .ext-toggle.ping,
+  .ext-popup.shake { animation: none !important; }
   .ext-meter-fill,
   .ext-scan-bar-fill,
-  .ext-verdict { transition: none !important; }
-  .ext-popup.shake { animation: none !important; }
+  .ext-verdict,
+  .ext-toggle,
+  .ext-toggle:active,
+  .ext-lookup-btn:active,
+  .ext-btn:active { transition: none !important; transform: none !important; }
 }

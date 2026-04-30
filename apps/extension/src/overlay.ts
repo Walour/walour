@@ -236,10 +236,17 @@ const OVERLAY_CSS = `
     from { opacity: 0; transform: translateY(8px); }
     to   { opacity: 1; transform: translateY(0); }
   }
+  @keyframes walour-scalePing {
+    0%   { transform: translate(-50%, -50%) scale(0.96); }
+    60%  { transform: translate(-50%, -50%) scale(1.015); }
+    100% { transform: translate(-50%, -50%) scale(1.0); }
+  }
+  .walour-overlay.ping { animation: walour-scalePing 260ms ease-out 1; }
 
   @media (prefers-reduced-motion: reduce) {
     .walour-dot.checking,
-    .walour-threat-item { animation: none !important; }
+    .walour-threat-item,
+    .walour-overlay.ping { animation: none !important; }
     .walour-meter-fill,
     .walour-verdict { transition: none !important; }
   }
@@ -618,6 +625,15 @@ export function setVerdict(
       allowBtnRef.className = 'walour-btn walour-btn-ghost'
       allowBtnRef.removeAttribute('aria-label')
       allowBtnRef.style.setProperty('--hold-pct', '0%')
+    }
+  }
+
+  // scale-ping the overlay card when verdict transitions to a definite state
+  if (level !== 'UNKNOWN') {
+    const card = shadowRoot.querySelector('.walour-overlay') as HTMLElement | null
+    if (card && !card.classList.contains('ping')) {
+      card.classList.add('ping')
+      setTimeout(() => card.classList.remove('ping'), 320)
     }
   }
 }

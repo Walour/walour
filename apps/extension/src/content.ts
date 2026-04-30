@@ -11,7 +11,7 @@
 const _freeze = Object.freeze
 const _origPromise = Promise
 
-import { showOverlay, hideOverlay, updateRow, appendStream, onDecision } from './overlay'
+import { showOverlay, hideOverlay, updateRow, appendStream, onDecision, setVerdict } from './overlay'
 
 // Guard: only inject once per page load
 if (typeof (window as any).__walour_content_injected === 'undefined') {
@@ -130,25 +130,41 @@ if (typeof (window as any).__walour_content_injected === 'undefined') {
     }
   }
 
+  let _scanDomainLevel: 'GREEN' | 'AMBER' | 'RED' = 'GREEN'
+  let _scanTokenLevel:  'GREEN' | 'AMBER' | 'RED' = 'GREEN'
+  let _scanThreats: string[] = []
+  let _scanConfidence = 0
+
+  function worstLevel(
+    a: 'GREEN' | 'AMBER' | 'RED',
+    b: 'GREEN' | 'AMBER' | 'RED'
+  ): 'GREEN' | 'AMBER' | 'RED' {
+    if (a === 'RED' || b === 'RED') return 'RED'
+    if (a === 'AMBER' || b === 'AMBER') return 'AMBER'
+    return 'GREEN'
+  }
+
   function handlePortMessage(msg: any): void {
     if (msg.type === 'SCAN_RESULT') {
       const domain = msg.domain
       const token = msg.token
 
       if (domain) {
-        // DomainRiskResult.level is already 'GREEN' | 'AMBER' | 'RED'
-        const level = (domain.level as 'GREEN' | 'AMBER' | 'RED') ?? 'GREEN'
-        const text = domain.reason || (level === 'RED' ? 'Phishing site detected' : level === 'AMBER' ? 'Suspicious domain' : 'Domain looks safe')
-        updateRow('url', level, text)
+        _scanDomainLevel = (domain.level as 'GREEN' | 'AMBER' | 'RED') ?? 'GREEN'
+        const text = domain.reason || (_scanDomainLevel === 'RED' ? 'Phishing site detected' : _scanDomainLevel === 'AMBER' ? 'Suspicious domain' : 'Domain looks safe')
+        updateRow('url', _scanDomainLevel, text)
+        if (_scanDomainLevel !== 'GREEN') _scanThreats.push(text)
+        if (domain.confidence != null) _scanConfidence = Math.max(_scanConfidence, Math.round(domain.confidence * 100))
       } else {
         updateRow('url', 'GREEN', 'Domain looks safe')
       }
 
       if (token) {
-        // TokenRiskResult.level is already 'GREEN' | 'AMBER' | 'RED'
-        const level = (token.level as 'GREEN' | 'AMBER' | 'RED') ?? 'GREEN'
-        const text = token.reasons?.[0] || (level === 'RED' ? 'High-risk token' : level === 'AMBER' ? 'Token caution advised' : 'Token looks safe')
-        updateRow('token', level, text)
+        _scanTokenLevel = (token.level as 'GREEN' | 'AMBER' | 'RED') ?? 'GREEN'
+        const text = token.reasons?.[0] || (_scanTokenLevel === 'RED' ? 'High-risk token' : _scanTokenLevel === 'AMBER' ? 'Token caution advised' : 'Token looks safe')
+        updateRow('token', _scanTokenLevel, text)
+        if (_scanTokenLevel !== 'GREEN' && token.reasons?.length) _scanThreats.push(...token.reasons)
+        if (token.score != null) _scanConfidence = Math.max(_scanConfidence, token.score)
       } else {
         updateRow('token', 'GREEN', 'No token risk detected')
       }
@@ -158,9 +174,13 @@ if (typeof (window as any).__walour_content_injected === 'undefined') {
     } else if (msg.type === 'STREAM_CHUNK') {
       appendStream(msg.chunk as string)
     } else if (msg.type === 'STREAM_DONE') {
-      // Mark tx row as complete — dot goes GREEN
-      // If stream wrote nothing, show a fallback message
       updateRow('tx', 'GREEN', '')
+      const overall = worstLevel(_scanDomainLevel, _scanTokenLevel)
+      // Confidence: use scan data if available, otherwise derive from verdict level
+      const confidence = _scanConfidence > 0
+        ? _scanConfidence
+        : overall === 'RED' ? 85 : overall === 'AMBER' ? 50 : 10
+      setVerdict(overall, confidence, _scanThreats.length ? _scanThreats : undefined)
     }
   }
 

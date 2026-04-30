@@ -188,25 +188,18 @@ export async function* decodeTransaction(
   const useFallback = isOpen('claude')
   try {
     const stream = useFallback
-      ? client.messages.stream({
-          model: 'claude-haiku-4-5',
+      ? null
+      : client.messages.stream({
+          model: 'claude-haiku-4-5-20251001',
           max_tokens: 300,
           system: SYSTEM_PROMPT,
           messages: [{ role: 'user', content: userContent }],
         })
-      : client.messages.stream({
-          model: 'claude-sonnet-4-6',
-          max_tokens: 300,
-          system: [
-            {
-              type: 'text',
-              text: SYSTEM_PROMPT,
-              // @ts-ignore — cache_control is valid at runtime per Anthropic SDK
-              cache_control: { type: 'ephemeral' },
-            },
-          ],
-          messages: [{ role: 'user', content: userContent }],
-        })
+
+    if (!stream) {
+      yield 'Unable to decode this transaction. Do not sign until you understand what it does.'
+      return
+    }
 
     let lastChunkTime = Date.now()
 

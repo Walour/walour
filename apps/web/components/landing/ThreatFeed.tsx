@@ -96,7 +96,7 @@ export default function ThreatFeed() {
       <div className="threat-feed-head">
         <span className="threat-feed-pulse" aria-hidden="true" />
         <span className="threat-feed-title">Live threat feed</span>
-        <span className="threat-feed-sub">Solana mainnet · last 60s</span>
+        <span className="threat-feed-sub">Solana mainnet · last 60 seconds</span>
       </div>
       <div className="threat-feed-list" role="list">
         {entries.map(e => (

@@ -56,10 +56,10 @@ export default function Hero({ threatsIndexed }: HeroProps) {
             <div style={{ marginBottom: 28 }}>
               <div className={`eyebrow-pill fade-up d1${inClass}`}>
                 <span className="live-dot" />
-                Oracle live · Solana mainnet ·{' '}
+                Oracle live on Solana mainnet ·{' '}
                 {threatsIndexed !== undefined
                   ? threatsIndexed.toLocaleString()
-                  : '—'}{' '}
+                  : '...'}{' '}
                 threats indexed
               </div>
             </div>
@@ -74,9 +74,9 @@ export default function Hero({ threatsIndexed }: HeroProps) {
                 margin: '0 0 20px',
               }}
             >
-              Stop <span className="glow-word">drains</span>
+              Block the <span className="glow-word">drain</span>
               <br />
-              <span style={{ color: 'var(--accent)' }}>before you sign.</span>
+              <span style={{ color: 'var(--accent)' }}>before you sign it.</span>
             </h1>
 
             <p
@@ -89,8 +89,8 @@ export default function Hero({ threatsIndexed }: HeroProps) {
                 lineHeight: 1.55,
               }}
             >
-              Real-time threat detection for every Solana transaction. Powered by
-              on-chain oracle, AI analysis, and community reports.
+              Walour inspects every Solana transaction in under 400ms and warns
+              you before your wallet signs anything malicious.
             </p>
 
             <div
@@ -106,7 +106,7 @@ export default function Hero({ threatsIndexed }: HeroProps) {
                 Add to Chrome
               </a>
               <a href="/registry" className="btn btn-secondary">
-                View Registry →
+                Browse the Registry
               </a>
             </div>
           </div>

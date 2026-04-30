@@ -8,14 +8,52 @@ import type { ThreatRow } from '@/lib/types'
 interface RegistryTableProps {
   rows: ThreatRow[]
   loading?: boolean
+  onRowClick?: (row: ThreatRow) => void
 }
 
 const SKELETON_COUNT = 8
 
+// Source badge styles mirror the DetailDrawer spec
+const SOURCE_STYLES: Record<string, { label: string; color: string; bg: string; border: string }> = {
+  goplus: {
+    label: 'GoPlus',
+    color: '#3B82F6',
+    bg: 'rgba(59,130,246,0.13)',
+    border: '#3B82F6',
+  },
+  community: {
+    label: 'Community',
+    color: 'var(--accent)',
+    bg: 'rgba(0,201,167,0.13)',
+    border: 'var(--accent)',
+  },
+  helius: {
+    label: 'Helius',
+    color: '#A855F7',
+    bg: 'rgba(168,85,247,0.13)',
+    border: '#A855F7',
+  },
+}
+
+function getSourceStyle(source: string | undefined) {
+  if (!source) return null
+  const key = source.toLowerCase()
+  return (
+    SOURCE_STYLES[key] ?? {
+      label: source.charAt(0).toUpperCase() + source.slice(1),
+      color: 'var(--text-muted)',
+      bg: 'rgba(139,148,158,0.10)',
+      border: 'var(--text-muted)',
+    }
+  )
+}
+
 function CopyButton({ address }: { address: string }) {
   const [copied, setCopied] = useState(false)
 
-  const handleCopy = useCallback(async () => {
+  const handleCopy = useCallback(async (e: React.MouseEvent) => {
+    // Prevent the click from bubbling up to the row's onRowClick
+    e.stopPropagation()
     try {
       await navigator.clipboard.writeText(address)
       setCopied(true)
@@ -93,6 +131,9 @@ function SkeletonRows() {
           <td>
             <div className="skeleton-bar" style={{ width: 72 }} />
           </td>
+          <td>
+            <div className="skeleton-bar" style={{ width: 56 }} />
+          </td>
           <td className="col-conf">
             <div className="skeleton-bar" style={{ width: '100%', maxWidth: 160 }} />
           </td>
@@ -105,7 +146,7 @@ function SkeletonRows() {
   )
 }
 
-export default function RegistryTable({ rows, loading = false }: RegistryTableProps) {
+export default function RegistryTable({ rows, loading = false, onRowClick }: RegistryTableProps) {
   return (
     <div className="table-card">
       <table className="threats">
@@ -113,6 +154,7 @@ export default function RegistryTable({ rows, loading = false }: RegistryTablePr
           <tr>
             <th scope="col">Address / Domain</th>
             <th scope="col">Type</th>
+            <th scope="col">Source</th>
             <th scope="col">Confidence</th>
             <th scope="col">Date Reported</th>
           </tr>
@@ -122,7 +164,7 @@ export default function RegistryTable({ rows, loading = false }: RegistryTablePr
             <SkeletonRows />
           ) : rows.length === 0 ? (
             <tr>
-              <td colSpan={4}>
+              <td colSpan={5}>
                 <div className="registry-empty">
                   <div className="registry-empty-icon">
                     <svg
@@ -145,23 +187,58 @@ export default function RegistryTable({ rows, loading = false }: RegistryTablePr
               </td>
             </tr>
           ) : (
-            rows.map(row => (
-              <tr key={row.id}>
-                <td>
-                  <div className="addr-cell">
-                    <span className="mono">{truncateAddress(row.address)}</span>
-                    <CopyButton address={row.address} />
-                  </div>
-                </td>
-                <td>
-                  <Badge type={row.type} />
-                </td>
-                <td className="col-conf">
-                  <ConfBar value={Math.round(row.confidence * 100)} />
-                </td>
-                <td className="col-date">{formatDate(row.last_updated)}</td>
-              </tr>
-            ))
+            rows.map(row => {
+              const sourceStyle = getSourceStyle(row.source)
+              return (
+                <tr
+                  key={row.address}
+                  onClick={() => onRowClick?.(row)}
+                  style={onRowClick ? { cursor: 'pointer' } : undefined}
+                  tabIndex={onRowClick ? 0 : undefined}
+                  onKeyDown={
+                    onRowClick
+                      ? (e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault()
+                            onRowClick(row)
+                          }
+                        }
+                      : undefined
+                  }
+                  aria-label={onRowClick ? `View details for ${row.address}` : undefined}
+                >
+                  <td>
+                    <div className="addr-cell">
+                      <span className="mono">{truncateAddress(row.address)}</span>
+                      <CopyButton address={row.address} />
+                    </div>
+                  </td>
+                  <td>
+                    <Badge type={row.type} />
+                  </td>
+                  <td>
+                    {sourceStyle ? (
+                      <span
+                        className="badge"
+                        style={{
+                          color: sourceStyle.color,
+                          background: sourceStyle.bg,
+                          borderColor: sourceStyle.border,
+                        }}
+                      >
+                        {sourceStyle.label}
+                      </span>
+                    ) : (
+                      <span style={{ color: 'var(--text-disabled)', fontSize: 13 }}>—</span>
+                    )}
+                  </td>
+                  <td className="col-conf">
+                    <ConfBar value={Math.round(row.confidence * 100)} />
+                  </td>
+                  <td className="col-date">{formatDate(row.last_updated)}</td>
+                </tr>
+              )
+            })
           )}
         </tbody>
       </table>

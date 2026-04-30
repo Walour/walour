@@ -152,8 +152,8 @@ export default function HowItWorks() {
     <section className="how-section">
       <div className="container">
         <div className="how-section-head">
-          <h2>How Walour protects you</h2>
-          <p>From install to intercepted drain — under 400ms.</p>
+          <h2>From install to intercepted drain in under 400ms</h2>
+          <p>Three steps. No configuration. No account.</p>
         </div>
         <div ref={gridRef} className="how-grid-wrapper">
           <div
@@ -205,7 +205,7 @@ export default function HowItWorks() {
             <div>
               <h3 className="step-title">Install</h3>
               <p className="step-body">
-                Add Walour to Chrome in 10 seconds. Works with any wallet — Phantom, Solflare, Backpack.
+                Add Walour to Chrome in ten seconds. Works with Phantom, Solflare, Backpack, and any wallet adapter.
               </p>
             </div>
           </div>
@@ -223,7 +223,7 @@ export default function HowItWorks() {
             <div>
               <h3 className="step-title">Scan</h3>
               <p className="step-body">
-                Every signing request is checked against the on-chain oracle, AI threat models, and community reports in under 400ms.
+                Every signing request is checked against the on-chain oracle, a Claude-powered transaction decoder, and corroborated community reports. Total budget: 400ms.
               </p>
             </div>
           </div>
@@ -245,7 +245,7 @@ export default function HowItWorks() {
             <div>
               <h3 className="step-title">Protected</h3>
               <p className="step-body">
-                Walour intercepts and warns you before your wallet signs. Clear verdict. One click to reject.
+                Walour blocks the signing prompt and shows you what the transaction actually does. One click to reject.
               </p>
             </div>
           </div>

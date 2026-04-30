@@ -44,17 +44,17 @@ export default function StatsStrip({
   const cells: Array<{ value: string; label: string; color: ColorKey }> = [
     {
       value: counts.threats.toLocaleString(),
-      label: 'Threats Tracked',
+      label: 'Threats Indexed On-Chain',
       color: 'danger',
     },
     {
       value: counts.drainsBlocked.toLocaleString(),
-      label: 'Drains Blocked',
+      label: 'Signings Blocked',
       color: 'accent',
     },
     {
       value: counts.solSaved.toLocaleString(),
-      label: 'SOL Saved',
+      label: 'SOL Kept in Wallets',
       color: 'safe',
     },
   ]

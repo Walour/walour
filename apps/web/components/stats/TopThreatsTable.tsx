@@ -74,7 +74,7 @@ export default function TopThreatsTable({ threats }: TopThreatsTableProps) {
               })
 
               return (
-                <tr key={row.id ?? row.address}>
+                <tr key={row.address}>
                   {/* Rank circle */}
                   <td>
                     <span

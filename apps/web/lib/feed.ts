@@ -26,25 +26,25 @@ export function generateAddress(): string {
 
 const BLOCKED_STORIES = [
   'Fake airdrop site tried to drain a wallet',
-  'Phishing dApp requested unlimited SPL approval',
-  'Spoofed Jupiter clone attempted a hidden transfer',
+  'Phishing dApp asked for unlimited SPL approval',
+  'Spoofed Jupiter clone hid a transfer in the instruction',
   'Malicious mint disguised as an NFT claim',
   'Drainer contract masked as a token swap',
   'Fake Magic Eden listing tried to siphon SOL',
-  'Cloned wallet popup requested a blind signature',
-  'Rug token contract tried to gain transfer rights',
+  'Cloned wallet popup asked for a blind signature',
+  'Rug token tried to claim transfer authority',
   'Compromised Discord link triggered a drain attempt',
-  'Fake staking page requested account ownership',
-  'Unknown contract tried to move all SPL tokens',
-  'Counterfeit Phantom site asked to sign a drainer',
+  'Fake staking page asked for account ownership',
+  'Unknown contract tried to move every SPL token',
+  'Counterfeit Phantom site requested a drainer signature',
 ]
 
 const DRAINED_STORIES = [
-  'Wallet signed a malicious approval before install',
-  'User signed a drainer transaction on a fake site',
-  'Approval to a known drainer went through unprotected',
-  'Wallet drained via a spoofed claim page',
-  'Funds lost to a copycat dApp signature',
+  'Wallet approved a drainer two days before installing Walour',
+  'User signed a drainer on a spoofed mint page',
+  'Approval to a known drainer address went through',
+  'Spoofed claim page collected the signature',
+  'Copycat dApp collected a blind signature',
 ]
 
 function pickStory(verdict: FeedVerdict): string {

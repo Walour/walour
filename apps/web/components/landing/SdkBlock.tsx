@@ -7,10 +7,14 @@ interface CodeLine {
   text: string
 }
 
+const PM_COMMANDS: Record<string, string> = {
+  npm: 'npm install @walour/sdk',
+  pnpm: 'pnpm add @walour/sdk',
+  yarn: 'yarn add @walour/sdk',
+  bun: 'bun add @walour/sdk',
+}
+
 const SDK_LINES: CodeLine[] = [
-  { type: 'comment', text: '// install the oracle SDK' },
-  { type: 'prompt', text: '$ npm install @walour/sdk' },
-  { type: 'plain', text: '' },
   { type: 'plain', text: "import { Walour } from '@walour/sdk'" },
   { type: 'plain', text: '' },
   { type: 'plain', text: "const walour = new Walour({ network: 'mainnet-beta' })" },
@@ -19,19 +23,16 @@ const SDK_LINES: CodeLine[] = [
   { type: 'plain', text: "if (result.risk === 'HIGH') dontSign()" },
 ]
 
-const COPY_TEXT = `npm install @walour/sdk
-
-import { Walour } from '@walour/sdk'
-
-const walour = new Walour({ network: 'mainnet-beta' })
-
-const result = await walour.check(transaction)
-if (result.risk === 'HIGH') dontSign()`
-
 export default function SdkBlock() {
   const ref = useRef<HTMLDivElement>(null)
   const [revealed, setRevealed] = useState(false)
   const [copied, setCopied] = useState(false)
+  const [pm, setPm] = useState('npm')
+
+  useEffect(() => {
+    const saved = localStorage.getItem('walour-pm')
+    if (saved && PM_COMMANDS[saved]) setPm(saved)
+  }, [])
 
   useEffect(() => {
     const el = ref.current
@@ -49,8 +50,13 @@ export default function SdkBlock() {
     return () => obs.disconnect()
   }, [])
 
+  function selectPm(key: string) {
+    setPm(key)
+    localStorage.setItem('walour-pm', key)
+  }
+
   function handleCopy() {
-    navigator.clipboard.writeText(COPY_TEXT).then(() => {
+    navigator.clipboard.writeText(PM_COMMANDS[pm]).then(() => {
       setCopied(true)
       setTimeout(() => setCopied(false), 1400)
     })
@@ -71,7 +77,7 @@ export default function SdkBlock() {
                 lineHeight: 1.1,
               }}
             >
-              Integrate in minutes.
+              One npm install. Any Solana app.
             </h2>
             <p
               style={{
@@ -81,54 +87,79 @@ export default function SdkBlock() {
                 margin: '0 0 24px',
               }}
             >
-              Drop the SDK into your dApp, wallet, or backend. Threat lookups
-              are cached client-side, signed by the oracle, and verifiable on-chain.
+              Drop the SDK into a dApp, wallet, or backend. Lookups are cached
+              client-side, signed by the oracle, and verifiable against the
+              on-chain registry.
             </p>
 
             <ul className="sdk-bullets">
               <li className="sdk-bullet">
-                Cache-first lookups — sub-100ms warm, &lt;400ms cold.
+                Cache-first lookups. Sub-100ms warm, under 400ms cold.
               </li>
               <li className="sdk-bullet">
-                Streaming Claude analysis — first token under 400ms.
+                Streaming Claude analysis. First token under 400ms.
               </li>
               <li className="sdk-bullet">
-                Circuit breakers on every provider — never crashes your app.
+                Circuit breakers on every provider. Helius, GoPlus, Claude, all wrapped.
               </li>
             </ul>
 
             <div>
               <a href="#docs" className="btn btn-secondary">
-                Read the Docs →
+                Read the SDK docs
               </a>
             </div>
           </div>
 
-          {/* Right — code box */}
+          {/* Right — install bar + code box */}
           <div>
-            <div className="code-tab-row">
-              <span className="code-tab">
-                <span className="code-tab-dot" />
-                index.ts
-              </span>
+            {/* Install bar */}
+            <div className="install-bar">
+              <div className="install-bar-tabs">
+                {Object.keys(PM_COMMANDS).map(key => (
+                  <button
+                    key={key}
+                    className={`install-tab${pm === key ? ' active' : ''}`}
+                    onClick={() => selectPm(key)}
+                  >
+                    {key}
+                  </button>
+                ))}
+                <span className="install-bar-meta">v0.1.0 · TS · MIT</span>
+              </div>
+              <div className="install-bar-cmd">
+                <span className="install-bar-prompt" aria-hidden="true">$</span>
+                <code className="install-bar-code">{PM_COMMANDS[pm]}</code>
+                <button
+                  className={`install-bar-copy${copied ? ' copied' : ''}`}
+                  onClick={handleCopy}
+                  aria-label={copied ? 'Copied to clipboard' : 'Copy install command'}
+                >
+                  {copied ? '✓ Copied' : 'Copy'}
+                </button>
+              </div>
             </div>
 
-            <div className="codebox">
+            {/* Code box */}
+            <div className="codebox codebox-connected">
               <div className="codebox-chrome">
                 <div className="codebox-dots">
                   <span className="codebox-dot" />
                   <span className="codebox-dot" />
                   <span className="codebox-dot" />
                 </div>
-                <button
-                  className={`codebox-copy${copied ? ' copied' : ''}`}
-                  onClick={handleCopy}
-                  aria-label={copied ? 'Copied to clipboard' : 'Copy code to clipboard'}
+                <span
+                  style={{
+                    fontFamily: 'ui-monospace,"SF Mono","Roboto Mono",Consolas,monospace',
+                    fontSize: 11,
+                    color: 'var(--text-muted)',
+                    marginLeft: 6,
+                  }}
                 >
-                  {copied ? 'Copied' : 'Copy'}
-                </button>
+                  <span style={{ display: 'inline-block', width: 7, height: 7, borderRadius: '50%', background: '#3178C6', marginRight: 6, verticalAlign: 'middle' }} />
+                  index.ts
+                </span>
               </div>
-
               <div className="codebox-body">
                 {SDK_LINES.map((line, i) => (
                   <div
@@ -136,12 +167,11 @@ export default function SdkBlock() {
                     className={`code-reveal-line${revealed ? ' in' : ''}`}
                     style={{ transitionDelay: `${i * 80}ms` }}
                   >
-                    <span className={`c-${line.type}`}>{line.text || ' '}</span>
+                    <span className={`c-${line.type}`}>{line.text || ' '}</span>
                   </div>
                 ))}
               </div>
             </div>
-
           </div>
         </div>
       </div>

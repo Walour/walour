@@ -12,7 +12,7 @@ export default function CtaBanner() {
               margin: '0 0 12px',
             }}
           >
-            Ship Walour-protected. Today.
+            Ship a wallet your users can actually trust.
           </h2>
           <p
             style={{
@@ -23,7 +23,7 @@ export default function CtaBanner() {
               lineHeight: 1.55,
             }}
           >
-            Free for indie devs. No credit card. Works with any Solana wallet adapter.
+            Free for indie devs. No credit card. Works with every Solana wallet adapter.
           </p>
           <div
             style={{
@@ -34,7 +34,7 @@ export default function CtaBanner() {
             }}
           >
             <a href="#" className="btn btn-primary cta-btn-pulse">
-              Install Extension — it&apos;s free
+              Add to Chrome
             </a>
             <a href="#" className="btn btn-secondary btn-mono">
               npm i @walour/sdk

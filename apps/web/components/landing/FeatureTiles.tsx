@@ -77,7 +77,7 @@ const TILES: TileData[] = [
     eyebrow: 'Browser Extension',
     title: 'Chrome Extension',
     description:
-      'Real-time threat popup before you sign. Intercepts wallet signing requests and warns before your funds drain.',
+      'Intercepts every signing request from Phantom, Solflare, and Backpack. Verdict in under 400ms. One click to reject.',
     delay: 0,
   },
   {
@@ -86,7 +86,7 @@ const TILES: TileData[] = [
     eyebrow: 'Developer SDK',
     title: '@walour/sdk',
     description:
-      'npm install @walour/sdk. Works with any wallet adapter. Cache-first threat lookups in any Solana dApp.',
+      'Drop into any wallet adapter or backend. Cache-first lookups: sub-100ms warm, under 400ms cold.',
     delay: 150,
   },
   {
@@ -95,7 +95,7 @@ const TILES: TileData[] = [
     eyebrow: 'Live Oracle',
     title: 'On-Chain Oracle',
     description:
-      'Threat registry written on-chain. Immutable. Verifiable. Composable by any protocol or wallet.',
+      'Every threat entry is signed and written to Solana. Any protocol can read it. No protocol has to trust us.',
     delay: 300,
   },
 ]
@@ -127,10 +127,10 @@ export default function FeatureTiles() {
       <div className="container">
         <div style={{ textAlign: 'center', marginBottom: 48 }}>
           <h2 style={{ fontSize: 'clamp(28px,4vw,42px)', fontWeight: 700, letterSpacing: '-0.03em', margin: '0 0 12px' }}>
-            Everything you need to stay protected
+            One install. Three layers between you and a drainer.
           </h2>
           <p style={{ fontSize: 16, color: 'var(--text-muted)', margin: 0 }}>
-            One install. Three layers of defence.
+            Extension at the wallet, SDK at the dApp, oracle on-chain.
           </p>
         </div>
         <div

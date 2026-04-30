@@ -183,7 +183,7 @@ export default function Nav() {
           </div>
         </Link>
 
-        {/* Nav links */}
+        {/* Nav links — centered via CSS absolute positioning */}
         <div className={`nav-links${open ? ' open' : ''}`} id="navlinks">
           <Link href="/" className={pathname === '/' ? 'active' : ''}>
             Home
@@ -200,11 +200,18 @@ export default function Nav() {
           >
             Stats
           </Link>
-          <ThemeToggle />
-          <a href="#chrome" className="nav-cta">
-            Add to Chrome
-          </a>
+          <Link
+            href="/docs"
+            className={pathname === '/docs' ? 'active' : ''}
+          >
+            Docs
+          </Link>
         </div>
+
+        {/* CTA — always on the right */}
+        <a href="#chrome" className="nav-cta">
+          Add to Chrome
+        </a>
 
         {/* Hamburger toggle */}
         <button

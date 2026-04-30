@@ -1,9 +1,14 @@
-export const revalidate = 60
-
 import LivePill from '@/components/ui/LivePill'
 import StatGrid from '@/components/stats/StatGrid'
 import TopThreatsTable from '@/components/stats/TopThreatsTable'
+import TypeDonut from '@/components/stats/TypeDonut'
+import ConfHistogram from '@/components/stats/ConfHistogram'
 import { fetchStats } from '@/lib/queries'
+
+// Force dynamic rendering — never statically prerender at build time, where env
+// vars may be absent and getSupabase() would return null → MOCK_STATS (empty
+// typeBreakdown / zero confidenceBuckets), causing charts to be hidden forever.
+export const dynamic = 'force-dynamic'
 
 export const metadata = {
   title: 'Live Stats — Walour',
@@ -11,7 +16,17 @@ export const metadata = {
 }
 
 export default async function StatsPage() {
-  const { threatsTracked, drainsBlocked, solSaved, topThreats } = await fetchStats()
+  const {
+    threatsTracked,
+    drainsBlocked,
+    solSaved,
+    topThreats,
+    typeBreakdown,
+    confidenceBuckets,
+  } = await fetchStats()
+
+  const hasTypeData = Object.values(typeBreakdown).some(v => v > 0)
+  const hasConfData = confidenceBuckets.some(v => v > 0)
 
   return (
     <main>
@@ -36,15 +51,32 @@ export default async function StatsPage() {
           <LivePill />
         </div>
 
-        {/* 3-column stat cards */}
+        {/* KPI cards */}
         <StatGrid
           threatsTracked={threatsTracked}
           drainsBlocked={drainsBlocked}
           solSaved={solSaved}
         />
 
+        {/* Charts row */}
+        {(hasTypeData || hasConfData) && (
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+              gap: 20,
+              margin: '24px 0',
+            }}
+          >
+            {hasTypeData && <TypeDonut typeBreakdown={typeBreakdown} />}
+            {hasConfData && <ConfHistogram confidenceBuckets={confidenceBuckets} />}
+          </div>
+        )}
+
         {/* Top 10 threats table */}
-        <TopThreatsTable threats={topThreats} />
+        <div style={{ marginTop: 24 }}>
+          <TopThreatsTable threats={topThreats} />
+        </div>
       </div>
     </main>
   )

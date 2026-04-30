@@ -7,9 +7,9 @@
 ## Active Phase
 
 **Phase 04 — Extension Overlay Redesign**
-**Current Plan:** 04-05 (Plans 01-04 complete)
-**Last session:** 2026-04-30 — Completed 04-04-PLAN.md
-**Stopped at:** 04-05-PLAN.md (ready to execute)
+**Current Plan:** 04-05 COMPLETE (All plans 01-05 complete)
+**Last session:** 2026-04-30 — Completed 04-05-PLAN.md
+**Stopped at:** Phase 04 complete — ready for Phase 05
 
 ## Completed Phases
 
@@ -20,6 +20,7 @@
 - Phase 4 Plan 02: background.ts lastScan cache + walour-popup port (2026-04-30) ✓
 - Phase 4 Plan 03: popup three-state redesign (idle/scanning/verdict) (2026-04-30) ✓
 - Phase 4 Plan 04: overlay redesign — glass card, verdict band, meter, press-and-hold (2026-04-30) ✓
+- Phase 4 Plan 05: micro-interactions — scalePing, .ping modifiers, canonical reduced-motion guard (2026-04-30) ✓
 
 ## Active Decisions
 
@@ -40,6 +41,9 @@
 - --hold-pct set as percentage string ('42%') not unitless — conic-gradient requires units
 - currentVerdict defaults to UNKNOWN (non-RED) preserving backward compat with content.ts callers that never call setVerdict
 - Array.from(querySelectorAll()) required for ES2020 Symbol.iterator compat (NodeListOf lacks it under lib: ES2020)
+- scalePing keyframe added to tokens.css (single source of truth); walour-scalePing added separately in OVERLAY_CSS — shadow DOM cannot inherit document stylesheets
+- Press-and-hold timer deliberately exempt from reduced-motion — functional friction, not decorative animation
+- Single canonical reduced-motion block in tokens.css covers all Phase 4 animations
 
 ## Performance Metrics
 
@@ -49,3 +53,4 @@
 | 04    | 02   | ~8 min   | 1/1   | 1     |
 | 04    | 03   | ~3 min   | 3/3   | 3     |
 | 04    | 04   | ~9 min   | 1/1   | 1     |
+| 04    | 05   | ~8 min   | 3/3   | 3     |

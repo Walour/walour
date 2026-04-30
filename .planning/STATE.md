@@ -7,9 +7,9 @@
 ## Active Phase
 
 **Phase 04 — Extension Overlay Redesign**
-**Current Plan:** 04-03 (Plans 01-02 complete)
-**Last session:** 2026-04-30 — Completed 04-02-PLAN.md
-**Stopped at:** 04-03-PLAN.md (ready to execute)
+**Current Plan:** 04-04 (Plans 01-03 complete)
+**Last session:** 2026-04-30 — Completed 04-03-PLAN.md
+**Stopped at:** 04-04-PLAN.md (ready to execute)
 
 ## Completed Phases
 
@@ -18,6 +18,7 @@
 - Phase 3: Web app (Registry, Stats, Docs pages) ✓
 - Phase 4 Plan 01: @walour/tokens package (2026-04-30) ✓
 - Phase 4 Plan 02: background.ts lastScan cache + walour-popup port (2026-04-30) ✓
+- Phase 4 Plan 03: popup three-state redesign (idle/scanning/verdict) (2026-04-30) ✓
 
 ## Active Decisions
 
@@ -31,6 +32,9 @@
 - lastScan Map capped at 50 tabs (LRU eviction); all writes go through setLastScan() helper
 - walour-popup port is fire-and-reply: one POPUP_HELLO then disconnect; Wave 3 popup reads this to initialize state
 - deriveLevel/deriveConfidence are naive stubs in Wave 2; Wave 4 may refine confidence algorithm
+- popup state gated via body[data-state] CSS attribute selectors — no JS class toggling needed for visibility
+- ScanResult imported as type-only from background.ts — zero runtime cost in popup.js bundle
+- vite.config.ts throws on missing tokens.css rather than silently skipping — misconfiguration cannot ship
 
 ## Performance Metrics
 
@@ -38,3 +42,4 @@
 |-------|------|----------|-------|-------|
 | 04    | 01   | ~10 min  | 2/2   | 2     |
 | 04    | 02   | ~8 min   | 1/1   | 1     |
+| 04    | 03   | ~3 min   | 3/3   | 3     |

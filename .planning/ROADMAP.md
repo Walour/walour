@@ -24,6 +24,6 @@
 Plans:
 - [x] 04-01-PLAN.md — Create @walour/tokens workspace package (tokens.css + package.json) [EXT-01] ✓ 2026-04-30
 - [x] 04-02-PLAN.md — Background script: lastScan cache + walour-popup port + ScanResult type [EXT-06] ✓ 2026-04-30
-- [ ] 04-03-PLAN.md — Popup redesign: three-state DOM (idle/scanning/verdict) + state machine + Vite copies tokens.css [EXT-02, EXT-03, EXT-04]
+- [x] 04-03-PLAN.md — Popup redesign: three-state DOM (idle/scanning/verdict) + state machine + Vite copies tokens.css [EXT-02, EXT-03, EXT-04] ✓ 2026-04-30
 - [ ] 04-04-PLAN.md — Overlay redesign: glass card + verdict band + meter + threats + press-and-hold on RED [EXT-05]
 - [ ] 04-05-PLAN.md — Micro-interactions polish: scalePing, toggle bounces, full reduced-motion audit [EXT-07]

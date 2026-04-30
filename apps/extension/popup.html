@@ -1,160 +1,161 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Walour</title>
+  <link rel="stylesheet" href="tokens.css">
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
+    html, body { background: var(--bg); color: var(--text); }
     body {
-      width: 320px;
-      background: #0D1117;
-      color: #E6EDF3;
-      font-family: 'SF Pro Display', 'Roboto', 'Segoe UI', system-ui, sans-serif;
-      font-size: 14px;
-      padding: 16px;
-    }
-
-    .header {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      padding-bottom: 14px;
-      border-bottom: 1px solid #30363D;
-      margin-bottom: 14px;
-    }
-
-    .logo {
-      color: #00C9A7;
-      font-size: 22px;
-      line-height: 1;
-    }
-
-    .name-block {
-      flex: 1;
-    }
-
-    .app-name {
-      font-size: 15px;
-      font-weight: 600;
-      color: #E6EDF3;
-    }
-
-    .app-version {
-      font-size: 11px;
-      color: #8B949E;
-      margin-top: 1px;
-    }
-
-    .status-row {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      padding: 10px 12px;
-      background: #161B22;
-      border: 1px solid #30363D;
-      border-radius: 8px;
-      margin-bottom: 14px;
-    }
-
-    .status-dot {
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      flex-shrink: 0;
-      background: #22C55E;
-    }
-
-    .status-text {
-      font-size: 13px;
-      color: #E6EDF3;
-    }
-
-    .checks-section {
-      margin-bottom: 14px;
-    }
-
-    .checks-label {
-      font-size: 11px;
-      color: #8B949E;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-      margin-bottom: 8px;
-    }
-
-    .check-row {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 6px 0;
-      border-bottom: 1px solid #161B22;
+      width: 316px;
+      min-height: 385px;
+      font-family: var(--font-sys);
       font-size: 13px;
     }
-
-    .check-row:last-child {
-      border-bottom: none;
-    }
-
-    .badge {
-      font-size: 11px;
-      font-weight: 500;
-    }
-
-    .footer {
-      padding-top: 12px;
-      border-top: 1px solid #30363D;
-      text-align: center;
-    }
-
-    .stats-link {
-      color: #00C9A7;
-      text-decoration: none;
-      font-size: 12px;
-      cursor: pointer;
-    }
-
-    .stats-link:hover {
-      text-decoration: underline;
-    }
+    body[data-state="idle"]     .scanning-section,
+    body[data-state="idle"]     .verdict-section,
+    body[data-state="scanning"] .idle-section,
+    body[data-state="scanning"] .verdict-section,
+    body[data-state="verdict"]  .idle-section,
+    body[data-state="verdict"]  .scanning-section { display: none !important; }
   </style>
 </head>
-<body>
-  <div class="header">
-    <span class="logo">&#x2B21;</span>
-    <div class="name-block">
-      <div class="app-name" id="walour-name">Walour</div>
-      <div class="app-version" id="walour-version">v0.1.0</div>
-    </div>
-  </div>
+<body data-state="idle">
+  <div class="ext-popup" id="ext-popup-root">
+    <header class="ext-popup-header">
+      <div class="ext-popup-brand">
+        <span class="ext-logo-wrap" id="ext-logo-wrap">
+          <svg viewBox="-80 -80 160 160" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" width="28" height="28">
+            <polygon points="0,-68 59,-34 59,34 0,68 -59,34 -59,-34" fill="none" stroke="#00C9A7" stroke-width="4.5" stroke-linejoin="round"/>
+            <polygon points="0,-46 40,-23 40,23 0,46 -40,23 -40,-23" fill="none" stroke="#00C9A7" stroke-width="1.5" stroke-linejoin="round" opacity="0.3"/>
+            <polyline points="-40,-23 -18,26 0,6" fill="none" stroke="#00C9A7" stroke-width="3.5" stroke-linejoin="round" stroke-linecap="round"/>
+            <polyline points="40,-23 18,26 0,6" fill="none" stroke="#00C9A7" stroke-width="3.5" stroke-linejoin="round" stroke-linecap="round"/>
+            <polygon points="-28,-36 -16,-29 -16,-16 -28,-9 -40,-16 -40,-29" fill="none" stroke="#00C9A7" stroke-width="0.8" opacity="0.18"/>
+            <polygon points="28,-36 40,-29 40,-16 28,-9 16,-16 16,-29" fill="none" stroke="#00C9A7" stroke-width="0.8" opacity="0.18"/>
+            <polygon points="0,13 12,20 12,33 0,40 -12,33 -12,20" fill="none" stroke="#00C9A7" stroke-width="0.8" opacity="0.18"/>
+            <circle cx="0" cy="-68" r="4.5" fill="#0D1117" stroke="#00C9A7" stroke-width="1.8"/>
+            <circle cx="59" cy="-34" r="4.5" fill="#0D1117" stroke="#00C9A7" stroke-width="1.8"/>
+            <circle cx="59" cy="34" r="4.5" fill="#0D1117" stroke="#00C9A7" stroke-width="1.8"/>
+            <circle cx="0" cy="68" r="4.5" fill="#0D1117" stroke="#00C9A7" stroke-width="1.8"/>
+            <circle cx="-59" cy="34" r="4.5" fill="#0D1117" stroke="#00C9A7" stroke-width="1.8"/>
+            <circle cx="-59" cy="-34" r="4.5" fill="#0D1117" stroke="#00C9A7" stroke-width="1.8"/>
+          </svg>
+        </span>
+        <span class="ext-popup-brand-name" id="walour-name">WALOUR</span>
+      </div>
+      <span class="ext-live-pill" id="ext-live-pill">
+        <span class="ext-live-dot"></span>
+        <span id="ext-live-label">Active</span>
+      </span>
+    </header>
 
-  <div class="status-row">
-    <div class="status-dot" id="status-dot"></div>
-    <span class="status-text" id="status-text">Protection active</span>
-  </div>
+    <section class="idle-section">
+      <div class="ext-stats-strip" aria-label="Protection stats">
+        <div class="ext-stats-cell">
+          <div class="ext-stats-cell-value" id="stat-blocks">0</div>
+          <div class="ext-stats-cell-label">Blocked</div>
+        </div>
+        <div class="ext-stats-cell">
+          <div class="ext-stats-cell-value" id="stat-scans">0</div>
+          <div class="ext-stats-cell-label">Scans</div>
+        </div>
+        <div class="ext-stats-cell">
+          <div class="ext-stats-cell-value" id="stat-version">v0.1.0</div>
+          <div class="ext-stats-cell-label">Build</div>
+        </div>
+      </div>
+      <form class="ext-lookup" id="ext-lookup-form" autocomplete="off">
+        <input class="ext-lookup-input" id="ext-lookup-input" type="text" placeholder="Lookup domain or address..." aria-label="Lookup">
+        <button class="ext-lookup-btn" id="ext-lookup-btn" type="submit">Check</button>
+      </form>
+      <div class="ext-toggles" role="group" aria-label="Active checks">
+        <button class="ext-toggle on" id="toggle-url" type="button" data-key="url">
+          <span class="ext-toggle-dot"></span>
+          <span>URL</span>
+        </button>
+        <button class="ext-toggle on" id="toggle-token" type="button" data-key="token">
+          <span class="ext-toggle-dot"></span>
+          <span>Token</span>
+        </button>
+        <button class="ext-toggle on" id="toggle-tx" type="button" data-key="tx">
+          <span class="ext-toggle-dot"></span>
+          <span>Transaction</span>
+        </button>
+      </div>
+      <div class="ext-actions">
+        <a class="ext-btn accent" id="stats-link" href="https://walour.xyz/stats" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;justify-content:center;text-decoration:none;">View stats</a>
+      </div>
+    </section>
 
-  <div class="checks-section">
-    <div class="checks-label">Active Checks</div>
-    <div class="check-row">
-      <span>URL / Domain</span>
-      <span class="badge" id="badge-url">On</span>
-    </div>
-    <div class="check-row">
-      <span>Token Risk</span>
-      <span class="badge" id="badge-token">On</span>
-    </div>
-    <div class="check-row">
-      <span>Transaction Decode</span>
-      <span class="badge" id="badge-tx">On</span>
-    </div>
-  </div>
+    <section class="scanning-section">
+      <div class="ext-verdict is-scanning">
+        <div class="ext-verdict-icon" aria-hidden="true">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#00C9A7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="9"/>
+            <path d="M12 7v5l3 2"/>
+          </svg>
+        </div>
+        <div>
+          <div class="ext-verdict-label scanning" id="scan-title">Scanning...</div>
+          <div class="ext-verdict-sub" id="scan-host">—</div>
+        </div>
+      </div>
+      <div class="ext-scan-progress">
+        <div class="ext-scan-bar-track">
+          <div class="ext-scan-bar-fill" id="scan-bar"></div>
+        </div>
+        <div class="ext-scan-label" id="scan-label">Running checks...</div>
+      </div>
+      <div class="ext-check-rows" id="check-rows">
+        <div class="ext-check-row" data-key="url">
+          <span class="ext-check-dot checking"></span>
+          <span class="ext-check-label">URL</span>
+          <span class="ext-check-text" id="check-text-url">Checking...</span>
+        </div>
+        <div class="ext-check-row" data-key="token">
+          <span class="ext-check-dot checking"></span>
+          <span class="ext-check-label">Token</span>
+          <span class="ext-check-text" id="check-text-token">Checking...</span>
+        </div>
+        <div class="ext-check-row" data-key="tx">
+          <span class="ext-check-dot checking"></span>
+          <span class="ext-check-label">Transaction</span>
+          <span class="ext-check-text stream" id="check-text-tx">Decoding...</span>
+        </div>
+      </div>
+    </section>
 
-  <div class="footer">
-    <a class="stats-link" id="stats-link" href="https://walour.xyz/stats" target="_blank">
-      View protection stats &rarr;
-    </a>
+    <section class="verdict-section">
+      <div class="ext-verdict" id="verdict-band">
+        <div class="ext-verdict-icon" id="verdict-icon" aria-hidden="true"></div>
+        <div>
+          <div class="ext-verdict-label" id="verdict-label">—</div>
+          <div class="ext-verdict-sub" id="verdict-sub">—</div>
+        </div>
+      </div>
+      <div class="ext-meter">
+        <span class="ext-meter-label">Confidence</span>
+        <span class="ext-meter-track">
+          <span class="ext-meter-fill" id="meter-fill"></span>
+        </span>
+        <span class="ext-meter-pct" id="meter-pct">0%</span>
+      </div>
+      <div class="ext-threats" id="threats-block" hidden>
+        <div class="ext-threats-header">Detected threats</div>
+        <div id="threats-list"></div>
+      </div>
+      <div class="ext-address-card">
+        <div class="ext-address-card-label">Site / Token</div>
+        <div class="ext-address-card-value" id="address-card-value">—</div>
+      </div>
+      <div class="ext-actions">
+        <button class="ext-btn primary" id="verdict-block" type="button">Don't sign</button>
+        <button class="ext-btn ghost" id="verdict-details" type="button">View details</button>
+      </div>
+    </section>
   </div>
-
-  <script src="dist/popup.js" type="module"></script>
+  <script type="module" src="popup.js"></script>
 </body>
 </html>

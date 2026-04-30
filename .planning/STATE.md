@@ -7,9 +7,9 @@
 ## Active Phase
 
 **Phase 04 — Extension Overlay Redesign**
-**Current Plan:** 04-02 (Plan 01 complete)
-**Last session:** 2026-04-30 — Completed 04-01-PLAN.md
-**Stopped at:** 04-02-PLAN.md (ready to execute)
+**Current Plan:** 04-03 (Plans 01-02 complete)
+**Last session:** 2026-04-30 — Completed 04-02-PLAN.md
+**Stopped at:** 04-03-PLAN.md (ready to execute)
 
 ## Completed Phases
 
@@ -17,6 +17,7 @@
 - Phase 2: Chrome extension MVP (Apr 26 – May 2) ✓
 - Phase 3: Web app (Registry, Stats, Docs pages) ✓
 - Phase 4 Plan 01: @walour/tokens package (2026-04-30) ✓
+- Phase 4 Plan 02: background.ts lastScan cache + walour-popup port (2026-04-30) ✓
 
 ## Active Decisions
 
@@ -27,9 +28,13 @@
 - No gamification fields
 - @walour/tokens is CSS-only, no build step; overlay.ts shadow DOM injection copies :root + .ext-* verbatim
 - tokens.css is single source of truth; if tokens change, regenerate overlay.ts OVERLAY_CSS string
+- lastScan Map capped at 50 tabs (LRU eviction); all writes go through setLastScan() helper
+- walour-popup port is fire-and-reply: one POPUP_HELLO then disconnect; Wave 3 popup reads this to initialize state
+- deriveLevel/deriveConfidence are naive stubs in Wave 2; Wave 4 may refine confidence algorithm
 
 ## Performance Metrics
 
 | Phase | Plan | Duration | Tasks | Files |
 |-------|------|----------|-------|-------|
 | 04    | 01   | ~10 min  | 2/2   | 2     |
+| 04    | 02   | ~8 min   | 1/1   | 1     |

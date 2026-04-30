@@ -27,7 +27,7 @@ type IncomingMessage = ScanTxMessage | TelemetryMessage
 export interface ScanResult {
   level: 'GREEN' | 'AMBER' | 'RED' | 'UNKNOWN'
   hostname: string
-  domain: { risk: string; reason?: string } | null
+  domain: { level?: string; risk?: string; reason?: string } | null
   token: { risk: string; symbol?: string } | null
   txSummary: string
   confidence: number
@@ -78,10 +78,13 @@ function setLastScan(tabId: number, partial: Partial<ScanResult> & { hostname?: 
 }
 
 function deriveLevel(domain: ScanResult['domain'], token: ScanResult['token']): ScanResult['level'] {
-  const risks = [domain?.risk, token?.risk].filter(Boolean) as string[]
-  if (risks.includes('RED') || risks.includes('HIGH') || risks.includes('CRITICAL')) return 'RED'
-  if (risks.includes('AMBER') || risks.includes('MEDIUM') || risks.includes('WARN')) return 'AMBER'
-  if (risks.includes('GREEN') || risks.includes('LOW') || risks.includes('SAFE')) return 'GREEN'
+  const vals = [
+    (domain as any)?.level, (domain as any)?.risk,
+    (token as any)?.level,  (token as any)?.risk,
+  ].filter(Boolean) as string[]
+  if (vals.some(v => ['RED','HIGH','CRITICAL'].includes(v))) return 'RED'
+  if (vals.some(v => ['AMBER','MEDIUM','WARN'].includes(v))) return 'AMBER'
+  if (vals.some(v => ['GREEN','LOW','SAFE'].includes(v))) return 'GREEN'
   return 'UNKNOWN'
 }
 
@@ -130,31 +133,19 @@ async function handleScanTx(
         })
       }
     } else {
-      const domain = { risk: 'UNKNOWN', reason: 'Scan service unavailable' }
+      const domain = { level: 'AMBER', reason: 'Scan service unavailable' }
       const token = null
       port.postMessage({ type: 'SCAN_RESULT', domain, token })
       if (tabId !== undefined) {
-        setLastScan(tabId, {
-          hostname,
-          domain,
-          token,
-          level: deriveLevel(domain, token),
-          confidence: deriveConfidence(domain, token),
-        })
+        setLastScan(tabId, { hostname, domain, token, level: 'AMBER', confidence: 0 })
       }
     }
   } catch {
-    const domain = { risk: 'UNKNOWN', reason: 'Network error during scan' }
+    const domain = { level: 'AMBER', reason: 'Network error during scan' }
     const token = null
     port.postMessage({ type: 'SCAN_RESULT', domain, token })
     if (tabId !== undefined) {
-      setLastScan(tabId, {
-        hostname,
-        domain,
-        token,
-        level: deriveLevel(domain, token),
-        confidence: deriveConfidence(domain, token),
-      })
+      setLastScan(tabId, { hostname, domain, token, level: 'AMBER', confidence: 0 })
     }
   }
 

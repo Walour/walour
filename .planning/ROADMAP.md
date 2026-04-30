@@ -16,7 +16,7 @@
 - SIM-03: Worker `/api/simulate` endpoint — call simulateTransaction, parse pre/post token balances, return delta array
 - SIM-04: Overlay balance delta row — show SOL/token changes surfaced by simulation before streaming Claude explanation
 
-**Plans:** 1/4 plans executed
+**Plans:** 3/4 plans executed
 
 Plans:
 - [ ] 05-01-PLAN.md — Fix ALT resolution in scan.ts extractAccounts() [SIM-01]

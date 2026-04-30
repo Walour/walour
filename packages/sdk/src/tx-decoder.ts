@@ -21,7 +21,7 @@ const TOKEN_PROGRAM = 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA'
 const TOKEN_2022_PROGRAM = 'TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb'
 
 interface RedFlag {
-  type: 'set_authority' | 'close_account' | 'unlimited_approve' | 'corpus_hit'
+  type: 'set_authority' | 'close_account' | 'unlimited_approve' | 'corpus_hit' | 'permanent_delegate'
   detail: string
 }
 
@@ -69,6 +69,14 @@ function detectRedFlags(
           detail: `Token approval granted to unknown program ${delegate}`,
         })
       }
+    }
+
+    // InitializePermanentDelegate on Token-2022: discriminator = 1c
+    if (ix.program === TOKEN_2022_PROGRAM && discriminator === '1c') {
+      flags.push({
+        type: 'permanent_delegate',
+        detail: 'Token mint has PermanentDelegate — issuer can drain any holder account at any time',
+      })
     }
 
     // Check all account keys against corpus

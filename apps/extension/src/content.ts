@@ -80,7 +80,11 @@ if (typeof (window as any).__walour_content_injected === 'undefined') {
           // MAIN world → bridge via window.postMessage
           function onBridgeMessage(e: MessageEvent) {
             if (!e.data || e.data.__walour !== true || e.data.reqId !== reqId) return
-            window.removeEventListener('message', onBridgeMessage)
+            const msgType = e.data.msg?.type
+            // Keep listening until the scan stream is fully done
+            if (msgType === 'STREAM_DONE' || msgType === 'DISCONNECTED') {
+              window.removeEventListener('message', onBridgeMessage)
+            }
             try { handlePortMessage(e.data.msg) } catch { /* ignore */ }
           }
           window.addEventListener('message', onBridgeMessage)

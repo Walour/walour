@@ -1,5 +1,31 @@
 # Walour Roadmap
 
+## Phase 5: Scan Accuracy + Transaction Simulation
+
+**Goal:** Make Walour's threat detection deterministic and trustworthy — fix the ALT account resolution bug so modern drainer transactions aren't missed, add Token-2022 PermanentDelegate detection, and build the transaction simulation layer that shows exact balance deltas before signing.
+
+**Deliverables:**
+- ALT bug fix: scan.ts resolves Address Lookup Tables before threat analysis
+- Token-2022 PermanentDelegate detection in red-flag logic
+- `/api/simulate` worker endpoint using `connection.simulateTransaction()`
+- Balance delta display in overlay ("+0.5 SOL, -1000 USDC") before Claude explanation
+
+**Requirements:**
+- SIM-01: Fix ALT resolution in scan.ts extractAccounts() — must resolve all ALT accounts before threat scoring
+- SIM-02: Add Token-2022 PermanentDelegate detection to red-flag discriminator checks
+- SIM-03: Worker `/api/simulate` endpoint — call simulateTransaction, parse pre/post token balances, return delta array
+- SIM-04: Overlay balance delta row — show SOL/token changes surfaced by simulation before streaming Claude explanation
+
+**Plans:** 1/4 plans executed
+
+Plans:
+- [ ] 05-01-PLAN.md — Fix ALT resolution in scan.ts extractAccounts() [SIM-01]
+- [ ] 05-02-PLAN.md — Token-2022 PermanentDelegate detection in red-flag logic [SIM-02]
+- [ ] 05-03-PLAN.md — Worker /api/simulate endpoint — balance deltas [SIM-03]
+- [ ] 05-04-PLAN.md — Overlay balance delta display before Claude stream [SIM-04]
+
+---
+
 ## Phase 4: Extension + Overlay Redesign
 
 **Goal:** Redesign the Chrome extension popup and transaction overlay to match the website's visual language — same design tokens, glass morphism, hex logo, live pulse, and risk verdict UX.

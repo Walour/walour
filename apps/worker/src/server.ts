@@ -6,6 +6,7 @@ import decodeHandler from './decode'
 import blinkHandler from './blink'
 import ingestHandler from './ingest'
 import purgeHandler from './purge'
+import simulateHandler from './simulate'
 
 const PORT = process.env.PORT ? parseInt(process.env.PORT) : 3000
 
@@ -15,6 +16,7 @@ const routes: Record<string, (req: Request) => Promise<Response>> = {
   '/api/blink': blinkHandler,
   '/api/ingest': ingestHandler,
   '/api/purge': purgeHandler,
+  '/api/simulate': simulateHandler,
 }
 
 // Adapt Node IncomingMessage → Web Request → Web Response → Node ServerResponse
@@ -98,4 +100,5 @@ server.listen(PORT, () => {
   console.log('  GET  /api/blink?address=<pubkey>')
   console.log('  POST /api/ingest')
   console.log('  POST /api/purge')
+  console.log('  POST /api/simulate  { txBase64: string, signerPubkey?: string }')
 })

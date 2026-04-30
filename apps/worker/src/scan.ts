@@ -1,4 +1,4 @@
-import { VersionedTransaction, PublicKey } from '@solana/web3.js'
+import { Connection, VersionedTransaction, PublicKey } from '@solana/web3.js'
 import { checkDomain, checkTokenRisk, lookupAddress } from '@walour/sdk'
 
 export const config = { runtime: 'edge' }
@@ -13,10 +13,21 @@ const KNOWN_PROGRAMS = new Set([
   'JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4',
 ])
 
-function extractAccounts(tx: VersionedTransaction): PublicKey[] {
+function getConnection(): Connection {
+  return new Connection(
+    `https://mainnet.helius-rpc.com/?api-key=${process.env.HELIUS_API_KEY}`,
+    'confirmed'
+  )
+}
+
+async function resolveAccounts(
+  tx: VersionedTransaction,
+  connection: Connection
+): Promise<{ accounts: PublicKey[]; failed: boolean }> {
   const staticKeys = tx.message.staticAccountKeys
   const compiledInstructions = tx.message.compiledInstructions
 
+  // Collect all referenced indexes from instructions
   const indexSet = new Set<number>()
   for (const ix of compiledInstructions) {
     for (const idx of ix.accountKeyIndexes) {
@@ -24,25 +35,42 @@ function extractAccounts(tx: VersionedTransaction): PublicKey[] {
     }
   }
 
-  const accounts: PublicKey[] = [...staticKeys]
-  const referencedAccounts: PublicKey[] = []
+  // Start with all static keys
+  const resolved: PublicKey[] = [...staticKeys]
+
+  // Add instruction-referenced static keys (may duplicate, deduped below)
   for (const idx of indexSet) {
     if (idx < staticKeys.length) {
-      referencedAccounts.push(staticKeys[idx])
+      resolved.push(staticKeys[idx])
+    }
+  }
+
+  // Resolve Address Lookup Tables
+  let failed = false
+  const lookups = tx.message.addressTableLookups
+  for (const lookup of lookups) {
+    try {
+      const alt = await connection.getAddressLookupTable(lookup.accountKey)
+      if (!alt.value) { failed = true; continue }
+      for (const idx of lookup.writableIndexes) resolved.push(alt.value.state.addresses[idx])
+      for (const idx of lookup.readonlyIndexes) resolved.push(alt.value.state.addresses[idx])
+    } catch {
+      failed = true
     }
   }
 
   // Deduplicate
   const seen = new Set<string>()
   const unique: PublicKey[] = []
-  for (const key of [...accounts, ...referencedAccounts]) {
+  for (const key of resolved) {
     const str = key.toBase58()
     if (!seen.has(str)) {
       seen.add(str)
       unique.push(key)
     }
   }
-  return unique
+
+  return { accounts: unique, failed }
 }
 
 function findLikelyMint(accounts: PublicKey[]): string | null {
@@ -87,13 +115,16 @@ export default async function handler(req: Request): Promise<Response> {
     })
   }
 
+  const connection = getConnection()
   let mintAddress: string | null = null
+  let altWarning = false
 
   if (txParam) {
     try {
       const txBytes = Buffer.from(txParam, 'base64')
       const tx = VersionedTransaction.deserialize(txBytes)
-      const accounts = extractAccounts(tx)
+      const { accounts, failed: altFailed } = await resolveAccounts(tx, connection)
+      if (altFailed) altWarning = true
       mintAddress = findLikelyMint(accounts)
     } catch {
       // Malformed tx — continue without mint detection
@@ -107,7 +138,8 @@ export default async function handler(req: Request): Promise<Response> {
     try {
       const txBytes = Buffer.from(txParam, 'base64')
       const tx = VersionedTransaction.deserialize(txBytes)
-      const accounts = extractAccounts(tx)
+      const { accounts, failed: altFailed } = await resolveAccounts(tx, connection)
+      if (altFailed) altWarning = true
       const nonProgram = accounts.filter(k => !KNOWN_PROGRAMS.has(k.toBase58()))
       const hits = await Promise.all(nonProgram.map(k => lookupAddress(k.toBase58())))
       const first = hits.find(h => h !== null)
@@ -130,8 +162,11 @@ export default async function handler(req: Request): Promise<Response> {
       }
     : domainResult
 
+  const responseBody: Record<string, unknown> = { domain: finalDomain, token: tokenResult }
+  if (altWarning) responseBody.altWarning = true
+
   return new Response(
-    JSON.stringify({ domain: finalDomain, token: tokenResult }),
+    JSON.stringify(responseBody),
     {
       status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

@@ -1,0 +1,12 @@
+<svg width="64" height="64" viewBox="-34 -34 68 68" xmlns="http://www.w3.org/2000/svg">
+  <polygon points="0,-30 26,-15 26,15 0,30 -26,15 -26,-15"
+    fill="none" stroke="#00C9A7" stroke-width="2.5" stroke-linejoin="round"/>
+  <polyline points="-18,-10 -8,12 0,3 8,12 18,-10"
+    fill="none" stroke="#00C9A7" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+  <circle cx="0"   cy="-30" r="2.5" fill="#0D1117" stroke="#00C9A7" stroke-width="1.2"/>
+  <circle cx="26"  cy="-15" r="2.5" fill="#0D1117" stroke="#00C9A7" stroke-width="1.2"/>
+  <circle cx="26"  cy="15"  r="2.5" fill="#0D1117" stroke="#00C9A7" stroke-width="1.2"/>
+  <circle cx="0"   cy="30"  r="2.5" fill="#0D1117" stroke="#00C9A7" stroke-width="1.2"/>
+  <circle cx="-26" cy="15"  r="2.5" fill="#0D1117" stroke="#00C9A7" stroke-width="1.2"/>
+  <circle cx="-26" cy="-15" r="2.5" fill="#0D1117" stroke="#00C9A7" stroke-width="1.2"/>
+</svg>

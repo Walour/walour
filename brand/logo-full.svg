@@ -1,0 +1,27 @@
+<svg width="160" height="160" viewBox="-80 -80 160 160" xmlns="http://www.w3.org/2000/svg">
+  <!-- outer hex ring -->
+  <polygon points="0,-68 59,-34 59,34 0,68 -59,34 -59,-34"
+    fill="none" stroke="#00C9A7" stroke-width="4.5" stroke-linejoin="round"/>
+  <!-- inner hex -->
+  <polygon points="0,-46 40,-23 40,23 0,46 -40,23 -40,-23"
+    fill="none" stroke="#00C9A7" stroke-width="1.5" stroke-linejoin="round" opacity="0.3"/>
+  <!-- W mark -->
+  <polyline points="-40,-23 -18,26 0,6"
+    fill="none" stroke="#00C9A7" stroke-width="3.5" stroke-linejoin="round" stroke-linecap="round"/>
+  <polyline points="40,-23 18,26 0,6"
+    fill="none" stroke="#00C9A7" stroke-width="3.5" stroke-linejoin="round" stroke-linecap="round"/>
+  <!-- chainmail texture -->
+  <polygon points="-28,-36 -16,-29 -16,-16 -28,-9 -40,-16 -40,-29"
+    fill="none" stroke="#00C9A7" stroke-width="0.8" opacity="0.18"/>
+  <polygon points="28,-36 40,-29 40,-16 28,-9 16,-16 16,-29"
+    fill="none" stroke="#00C9A7" stroke-width="0.8" opacity="0.18"/>
+  <polygon points="0,13 12,20 12,33 0,40 -12,33 -12,20"
+    fill="none" stroke="#00C9A7" stroke-width="0.8" opacity="0.18"/>
+  <!-- joint circles -->
+  <circle cx="0"   cy="-68" r="4.5" fill="#0D1117" stroke="#00C9A7" stroke-width="1.8"/>
+  <circle cx="59"  cy="-34" r="4.5" fill="#0D1117" stroke="#00C9A7" stroke-width="1.8"/>
+  <circle cx="59"  cy="34"  r="4.5" fill="#0D1117" stroke="#00C9A7" stroke-width="1.8"/>
+  <circle cx="0"   cy="68"  r="4.5" fill="#0D1117" stroke="#00C9A7" stroke-width="1.8"/>
+  <circle cx="-59" cy="34"  r="4.5" fill="#0D1117" stroke="#00C9A7" stroke-width="1.8"/>
+  <circle cx="-59" cy="-34" r="4.5" fill="#0D1117" stroke="#00C9A7" stroke-width="1.8"/>
+</svg>

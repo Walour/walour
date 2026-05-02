@@ -2,6 +2,7 @@ import Anthropic from '@anthropic-ai/sdk'
 import { Connection, VersionedTransaction, PublicKey } from '@solana/web3.js'
 import { cacheGet, cacheSet } from './lib/cache'
 import { isOpen, recordSuccess, recordFailure } from './lib/circuit-breaker'
+import { withRpcFallback } from './lib/rpc'
 import { lookupAddress } from './domain-check'
 import { createHash } from 'crypto'
 
@@ -97,13 +98,6 @@ function getClient() {
   return new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 }
 
-function getConnection(): Connection {
-  return new Connection(
-    `https://mainnet.helius-rpc.com/?api-key=${process.env.HELIUS_API_KEY}`,
-    'confirmed'
-  )
-}
-
 async function resolveALTs(
   tx: VersionedTransaction,
   connection: Connection
@@ -141,10 +135,9 @@ const SYSTEM_PROMPT = `You are a Solana transaction security auditor. Analyze th
 export async function* decodeTransaction(
   tx: VersionedTransaction
 ): AsyncGenerator<string> {
-  const connection = getConnection()
-
   // 1. Resolve ALTs
-  const { accounts, failed: altFailed } = await resolveALTs(tx, connection)
+  const { accounts, failed: altFailed } = await withRpcFallback(conn => resolveALTs(tx, conn))
+    .catch(() => ({ accounts: [...tx.message.staticAccountKeys], failed: true }))
   if (altFailed) {
     yield 'Warning: address lookup table resolution failed — this transaction is higher-risk than normal. '
   }
@@ -194,6 +187,7 @@ export async function* decodeTransaction(
   }`
 
   const useFallback = isOpen('claude')
+  let stallTimer: ReturnType<typeof setTimeout> | null = null
   try {
     const stream = useFallback
       ? null
@@ -209,29 +203,33 @@ export async function* decodeTransaction(
       return
     }
 
-    let lastChunkTime = Date.now()
+    const armStall = () => {
+      if (stallTimer) clearTimeout(stallTimer)
+      stallTimer = setTimeout(() => stream.abort(), STALL_TIMEOUT_MS)
+    }
 
+    armStall()
     for await (const event of stream) {
       if (event.type === 'content_block_delta' && event.delta.type === 'text_delta') {
         fullText += event.delta.text
         yield event.delta.text
-        lastChunkTime = Date.now()
-      }
-
-      // Stall detection
-      if (Date.now() - lastChunkTime > STALL_TIMEOUT_MS) {
-        yield ' [Decode stalled — verify this transaction manually before signing.]'
-        break
+        armStall()
       }
     }
 
+    clearTimeout(stallTimer!)
+    stallTimer = null
     if (!useFallback) recordSuccess('claude')
     if (fullText.length > 10) {
       await cacheSet(cacheKey, fullText, CACHE_TTL)
     }
   } catch (err) {
+    if (stallTimer) clearTimeout(stallTimer)
     console.error('[tx-decoder] Claude error:', err instanceof Error ? err.message : err)
     if (!useFallback) recordFailure('claude')
-    yield 'Unable to decode this transaction. Do not sign until you understand what it does.'
+    const isStall = err instanceof Error && err.name === 'APIUserAbortError'
+    yield isStall
+      ? ' [Decode stalled — verify this transaction manually before signing.]'
+      : 'Unable to decode this transaction. Do not sign until you understand what it does.'
   }
 }

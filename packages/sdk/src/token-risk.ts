@@ -1,6 +1,6 @@
 import { Connection, PublicKey } from '@solana/web3.js'
 import { cacheGet, cacheSet } from './lib/cache'
-import { withBreaker } from './lib/circuit-breaker'
+import { withRpcFallback } from './lib/rpc'
 import { lookupAddress } from './domain-check'
 import type { TokenRiskResult } from './types'
 
@@ -12,28 +12,18 @@ function getRaydiumLock(): PublicKey {
 }
 const CACHE_TTL = 60
 
-function getConnection(): Connection {
-  return new Connection(
-    `https://mainnet.helius-rpc.com/?api-key=${process.env.HELIUS_API_KEY}`,
-    'confirmed'
-  )
-}
-
 export async function checkTokenRisk(mint: string): Promise<TokenRiskResult> {
   const cacheKey = `token:risk:${mint}`
   const cached = await cacheGet<TokenRiskResult>(cacheKey)
   if (cached) return cached
 
-  const result = await withBreaker(
-    'helius',
-    () => runChecks(mint),
-    async () => ({
-      level: 'AMBER' as const,
+  const result = await withRpcFallback(conn => runChecks(mint, conn))
+    .catch((): TokenRiskResult => ({
+      level: 'AMBER',
       score: 30,
-      reasons: ['Risk check unavailable — RPC provider unreachable'],
-      checks: {}
-    })
-  )
+      reasons: ['Risk check unavailable — all RPC providers unreachable'],
+      checks: {},
+    }))
 
   await cacheSet(cacheKey, result, CACHE_TTL)
   return result
@@ -81,8 +71,7 @@ async function getGoPlusFlag(mint: string): Promise<boolean> {
   }
 }
 
-async function runChecks(mint: string): Promise<TokenRiskResult> {
-  const connection = getConnection()
+async function runChecks(mint: string, connection: Connection): Promise<TokenRiskResult> {
   const mintPubkey = new PublicKey(mint)
 
   const [mintInfo, largestAccounts, lpLocked, tokenAgeDays, goplusFlag, corpusHit] =

@@ -10,12 +10,20 @@ const supabaseUrl = process.env.SUPABASE_URL!
 const supabaseKey = process.env.SUPABASE_SERVICE_KEY!
 
 async function queryCorpus(address: string): Promise<ThreatReport | null> {
-  const res = await fetch(
-    `${supabaseUrl}/rest/v1/threat_reports?address=eq.${encodeURIComponent(address)}&limit=1`,
-    { headers: { apikey: supabaseKey, Authorization: `Bearer ${supabaseKey}` } }
-  )
-  const rows: ThreatReport[] = await res.json()
-  return rows[0] ?? null
+  try {
+    const res = await fetch(
+      `${supabaseUrl}/rest/v1/threat_reports?address=eq.${encodeURIComponent(address)}&limit=1`,
+      {
+        headers: { apikey: supabaseKey, Authorization: `Bearer ${supabaseKey}` },
+        signal: AbortSignal.timeout(5_000),
+      }
+    )
+    if (!res.ok) return null
+    const rows: ThreatReport[] = await res.json()
+    return rows[0] ?? null
+  } catch {
+    return null
+  }
 }
 
 async function goplusDomainCheck(hostname: string): Promise<boolean> {

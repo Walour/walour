@@ -182,7 +182,7 @@ if (typeof (window as any).__walour_content_injected === 'undefined') {
         const text = domain.reason || (_scanDomainLevel === 'RED' ? 'Phishing site detected' : _scanDomainLevel === 'AMBER' ? 'Suspicious domain' : 'Domain looks safe')
         updateRow('url', _scanDomainLevel, text)
         if (_scanDomainLevel !== 'GREEN') _scanThreats.push(text)
-        if (domain.confidence != null) _scanConfidence = Math.max(_scanConfidence, Math.round(domain.confidence * 100))
+        if (domain.confidence != null) _scanConfidence = Math.max(_scanConfidence, domain.confidence)
       } else {
         updateRow('url', 'GREEN', 'Domain looks safe')
       }
@@ -192,7 +192,7 @@ if (typeof (window as any).__walour_content_injected === 'undefined') {
         const text = token.reasons?.[0] || (_scanTokenLevel === 'RED' ? 'High-risk token' : _scanTokenLevel === 'AMBER' ? 'Token caution advised' : 'Token looks safe')
         updateRow('token', _scanTokenLevel, text)
         if (_scanTokenLevel !== 'GREEN' && token.reasons?.length) _scanThreats.push(...token.reasons)
-        if (token.score != null) _scanConfidence = Math.max(_scanConfidence, token.score)
+        if (token.score != null && _scanTokenLevel !== 'GREEN') _scanConfidence = Math.max(_scanConfidence, token.score / 100)
       } else {
         updateRow('token', 'GREEN', 'No token risk detected')
       }
@@ -204,10 +204,10 @@ if (typeof (window as any).__walour_content_injected === 'undefined') {
     } else if (msg.type === 'STREAM_DONE') {
       updateRow('tx', 'GREEN', '')
       const overall = worstLevel(_scanDomainLevel, _scanTokenLevel)
-      // Confidence: use scan data if available, otherwise derive from verdict level
+      // Confidence: use real data if available, otherwise reflect how thorough the check was
       const confidence = _scanConfidence > 0
         ? _scanConfidence
-        : overall === 'RED' ? 85 : overall === 'AMBER' ? 50 : 10
+        : overall === 'RED' ? 0.85 : overall === 'AMBER' ? 0.55 : 0.75
       setVerdict(overall, confidence, _scanThreats.length ? _scanThreats : undefined)
     }
   }

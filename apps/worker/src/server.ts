@@ -7,6 +7,11 @@ import blinkHandler from './blink'
 import ingestHandler from './ingest'
 import purgeHandler from './purge'
 import simulateHandler from './simulate'
+import mobileBlockedHandler from './mobile-blocked'
+import mobileScanHandler from './mobile-scan'
+import mobileWalletHealthHandler from './mobile-wallet-health'
+import mobileReportHandler from './mobile-report'
+import mobileStatsHandler from './mobile-stats'
 
 const PORT = process.env.PORT ? parseInt(process.env.PORT) : 3000
 
@@ -17,6 +22,11 @@ const routes: Record<string, (req: Request) => Promise<Response>> = {
   '/api/ingest': ingestHandler,
   '/api/purge': purgeHandler,
   '/api/simulate': simulateHandler,
+  '/api/mobile/blocked': mobileBlockedHandler,
+  '/api/mobile/scan': mobileScanHandler,
+  '/api/mobile/wallet-health': mobileWalletHealthHandler,
+  '/api/mobile/report': mobileReportHandler,
+  '/api/mobile/stats': mobileStatsHandler,
 }
 
 // Adapt Node IncomingMessage → Web Request → Web Response → Node ServerResponse
@@ -101,4 +111,9 @@ server.listen(PORT, () => {
   console.log('  POST /api/ingest')
   console.log('  POST /api/purge')
   console.log('  POST /api/simulate  { txBase64: string, signerPubkey?: string }')
+  console.log('  POST /api/mobile/blocked')
+  console.log('  POST /api/mobile/scan')
+  console.log('  POST /api/mobile/wallet-health')
+  console.log('  POST /api/mobile/report')
+  console.log('  GET  /api/mobile/stats')
 })

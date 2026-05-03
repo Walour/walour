@@ -4,8 +4,8 @@ milestone: v1.0
 milestone_name: milestone
 current_plan: Not started
 status: unknown
-stopped_at: Completed 05-04-PLAN.md
-last_updated: "2026-04-30T23:34:36.043Z"
+stopped_at: Completed 06-02-PLAN.md
+last_updated: "2026-05-03T13:52:46.366Z"
 progress:
   total_phases: 2
   completed_phases: 2
@@ -23,8 +23,8 @@ progress:
 
 **Phase 04 — Extension Overlay Redesign**
 **Current Plan:** Not started
-**Last session:** 2026-04-30T23:31:39.286Z
-**Stopped at:** Completed 05-04-PLAN.md
+**Last session:** 2026-05-03T13:52:46.359Z
+**Stopped at:** Completed 06-02-PLAN.md
 
 ## Completed Phases
 
@@ -60,6 +60,9 @@ progress:
 - Press-and-hold timer deliberately exempt from reduced-motion — functional friction, not decorative animation
 - Single canonical reduced-motion block in tokens.css covers all Phase 4 animations
 - PermanentDelegate detection scoped to TOKEN_2022_PROGRAM only; discriminator '1c' (hex 28) matches InitializePermanentDelegate
+- ConfidentialTransfer (Token-2022) flagged on extension presence alone — ext.state intentionally absent per account-decoder PR #24621; presence-only is correct
+- TransferFee (Token-2022) honeypot threshold: > 500 bps (>5%) — sub-5% fees exist on legitimate protocols
+- Token-2022 ext field path is parsed?.info?.extensions (NOT parsed?.extensions) — RESEARCH.md Pitfall 2
 
 ## Performance Metrics
 
@@ -73,4 +76,6 @@ progress:
 | 05    | 02   | ~5 min   | 1/1   | 1     |
 | Phase 05 P03 | 1 min | 2 tasks | 2 files |
 | Phase 05 P04 | 5 min | 2 tasks | 2 files |
+| Phase 06 P02 | 5min | 1 tasks | 1 files |
+| Phase 06 P03 | 8min | 1 tasks | 1 files |
 

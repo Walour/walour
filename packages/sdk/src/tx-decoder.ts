@@ -112,6 +112,24 @@ function detectRedFlags(
     }
   }
 
+  // DH-04: Multi-instruction drain pattern
+  // Count Transfer (03) + CloseAccount (09) on token programs across distinct token accounts.
+  // Suppress on DEX swaps (Jupiter/Orca/Raydium routinely close many token accounts).
+  const isDexTx = instructions.some(ix => DEX_PROGRAMS.has(ix.program))
+  if (!isDexTx) {
+    const drainIxs = instructions.filter(ix =>
+      (ix.program === TOKEN_PROGRAM || ix.program === TOKEN_2022_PROGRAM) &&
+      (ix.dataHex.slice(0, 2) === '03' || ix.dataHex.slice(0, 2) === '09')
+    )
+    const affectedAccounts = new Set(drainIxs.map(ix => ix.accounts[0]).filter(Boolean))
+    if (drainIxs.length > 2 && affectedAccounts.size > 2) {
+      flags.push({
+        type: 'multi_drain',
+        detail: `Transaction touches ${affectedAccounts.size} token accounts via Transfer/CloseAccount — characteristic drainer pattern`,
+      })
+    }
+  }
+
   return flags
 }
 

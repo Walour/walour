@@ -1,5 +1,7 @@
 import { Connection, VersionedTransaction } from '@solana/web3.js'
-import { adaptForVercel } from './lib/adapt'
+import { cacheGet, cacheSet } from '@walour/sdk/lib/cache'
+
+export const config = { runtime: 'edge' }
 
 export interface SimDelta {
   mint: string
@@ -7,6 +9,37 @@ export interface SimDelta {
   change: number      // human units (divided by 10^decimals)
   decimals: number
   uiChange: string    // formatted: "+0.5" or "-1000"
+}
+
+async function getTokenSymbol(mint: string): Promise<string | undefined> {
+  const cacheKey = `token:meta:${mint}`
+  const cached = await cacheGet<{ symbol: string }>(cacheKey)
+  if (cached?.symbol) return cached.symbol
+
+  const apiKey = process.env.JUPITER_API_KEY
+  if (!apiKey) return undefined
+
+  try {
+    const res = await fetch(
+      `https://api.jup.ag/tokens/v1/token/${mint}`,
+      {
+        headers: { 'x-api-key': apiKey },
+        signal: AbortSignal.timeout(3_000),
+      }
+    )
+    if (!res.ok) return undefined
+    const data = await res.json() as {
+      address: string
+      symbol: string
+      name: string
+      decimals: number
+    }
+    if (!data?.symbol) return undefined
+    await cacheSet(cacheKey, { symbol: data.symbol }, 3_600)
+    return data.symbol
+  } catch {
+    return undefined
+  }
 }
 
 export interface SimResult {
@@ -107,6 +140,14 @@ async function handler(req: Request): Promise<Response> {
     // signerPubkey is accepted for future filtering but not required in this version
     void signerPubkey
 
+    // DH-05: enrich each delta with token symbol (cache-first, never blocks on Jupiter failure)
+    await Promise.all(
+      deltas.map(async (d) => {
+        const sym = await getTokenSymbol(d.mint)
+        if (sym) d.symbol = sym
+      })
+    )
+
     const result: SimResult = { success: true, solChangeLamports, deltas }
     return new Response(JSON.stringify(result), {
       status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -119,4 +160,4 @@ async function handler(req: Request): Promise<Response> {
   }
 }
 
-export default adaptForVercel(handler)
+export default handler

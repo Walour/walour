@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-current_plan: Not started
-status: unknown
-stopped_at: Completed 06-04-PLAN.md
-last_updated: "2026-05-03T14:02:09.352Z"
+current_plan: Completed 07-01-PLAN.md
+status: active
+stopped_at: Completed 07-01-PLAN.md
+last_updated: "2026-05-03T15:30:00.000Z"
 progress:
-  total_phases: 2
-  completed_phases: 2
-  total_plans: 9
-  completed_plans: 9
+  total_phases: 3
+  completed_phases: 3
+  total_plans: 10
+  completed_plans: 10
 ---
 
 # Walour Project State
@@ -21,10 +21,10 @@ progress:
 
 ## Active Phase
 
-**Phase 06 — Detection Hardening**
-**Current Plan:** Not started
-**Last session:** 2026-05-03T13:58:32.644Z
-**Stopped at:** Completed 06-04-PLAN.md
+**Phase 07 — RDAP Domain Age Detection**
+**Current Plan:** Completed 07-01
+**Last session:** 2026-05-03T15:30:00.000Z
+**Stopped at:** Completed 07-01-PLAN.md
 
 ## Completed Phases
 
@@ -37,6 +37,7 @@ progress:
 - Phase 4 Plan 04: overlay redesign — glass card, verdict band, meter, press-and-hold (2026-04-30) ✓
 - Phase 4 Plan 05: micro-interactions — scalePing, .ping modifiers, canonical reduced-motion guard (2026-04-30) ✓
 - Phase 6 Plan 01: tx-decoder assign_account + durable_nonce + multi_drain detection (2026-05-03) ✓
+- Phase 7 Plan 01: RDAP domain age detection — rdapAgeCheck() + Promise.all concurrency + 9 tests (2026-05-03) ✓
 
 ## Active Decisions
 
@@ -71,6 +72,7 @@ progress:
 - System Program Assign uses 4-byte slice(0,8) LE u32 discriminator; Token program uses 1-byte slice(0,2)
 - Path alias @walour/sdk/lib/cache added to worker tsconfig to access Redis cache module without re-exporting from SDK public index (DH-05)
 - getTokenSymbol uses AbortSignal.timeout(3000) for Jupiter fetch; cache key token:meta:{mint} TTL 3600s; missing API key returns undefined without blocking sim (DH-05)
+- RDAP squat-combined branches (age+squat, age+squat+riskTld) are unreachable — Phase 1 returns early for all squat hits; RDAP scoring combines only with riskTld in the fallback (07-01)
 
 ## Performance Metrics
 
@@ -88,4 +90,5 @@ progress:
 | Phase 06 P03 | 8min | 1 tasks | 1 files |
 | Phase 06 P01 | 2 min | 2 tasks | 1 files |
 | Phase 06 P04 | 10 min | 2 tasks | 4 files |
+| Phase 07 P01 | ~15 min | 3 tasks | 2 files |
 

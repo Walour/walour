@@ -1,5 +1,6 @@
 {
   "devCommand": null,
+  "outputDirectory": ".",
   "crons": [
     { "path": "/api/ingest", "schedule": "0 0 * * *" },
     { "path": "/api/purge", "schedule": "0 2 * * *" },

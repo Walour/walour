@@ -94,10 +94,35 @@ export async function lookupAddress(pubkey: string): Promise<ThreatReport | null
   return null
 }
 
+// DH-06: IDN homograph detection.
+// Browsers encode confusable Unicode hostnames to Punycode (xn-- ACE prefix).
+// Char-code > 127 catches raw Unicode hostnames that bypassed browser encoding
+// (e.g., from a fetch interceptor passing the URL as a string).
+function hasHomoglyphRisk(hostname: string): boolean {
+  if (hostname.includes('xn--')) return true
+  for (let i = 0; i < hostname.length; i++) {
+    if (hostname.charCodeAt(i) > 127) return true
+  }
+  return false
+}
+
 export async function checkDomain(hostname: string): Promise<DomainRiskResult> {
   const cacheKey = `domain:risk:${hostname}`
   const cached = await cacheGet<DomainRiskResult>(cacheKey)
   if (cached) return cached
+
+  // DH-06: Fail-fast homoglyph check before corpus + GoPlus lookups.
+  // Punycode (xn--) and raw non-ASCII characters are definitive IDN homograph signals.
+  if (hasHomoglyphRisk(hostname)) {
+    const result: DomainRiskResult = {
+      level: 'RED',
+      reason: 'Domain contains non-ASCII or Punycode characters — likely impersonating a known site',
+      confidence: 0.9,
+      source: 'walour',
+    }
+    await cacheSet(cacheKey, result, DOMAIN_TTL)
+    return result
+  }
 
   // Check corpus first (faster)
   const corpusHit = await queryCorpus(hostname)

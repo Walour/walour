@@ -5,14 +5,6 @@
     { "path": "/api/purge", "schedule": "0 2 * * *" },
     { "path": "/api/promote", "schedule": "0 3 * * *" }
   ],
-  "rewrites": [
-    { "source": "/api/scan", "destination": "/src/scan.ts" },
-    { "source": "/api/decode", "destination": "/src/decode.ts" },
-    { "source": "/api/promote", "destination": "/src/promote.ts" },
-    { "source": "/api/ingest", "destination": "/src/ingest.ts" },
-    { "source": "/api/purge", "destination": "/src/purge.ts" },
-    { "source": "/api/blink", "destination": "/src/blink.ts" }
-  ],
   "headers": [
     {
       "source": "/api/scan",

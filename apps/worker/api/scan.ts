@@ -1,1 +1,1 @@
-export { default } from '../src/scan'
+export { default } from '../src/scan.js'

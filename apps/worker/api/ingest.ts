@@ -1,1 +1,1 @@
-export { default } from '../src/ingest'
+export { default } from '../src/ingest.js'

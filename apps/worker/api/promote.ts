@@ -1,1 +1,1 @@
-export { default } from '../src/promote'
+export { default } from '../src/promote.js'

@@ -1,1 +1,1 @@
-export { default } from '../src/blink'
+export { default } from '../src/blink.js'

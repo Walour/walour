@@ -1,1 +1,1 @@
-export { default } from '../src/decode'
+export { default } from '../src/decode.js'

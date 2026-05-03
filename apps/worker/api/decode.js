@@ -20,13 +20,62 @@ var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: tru
 // src/decode.ts
 var decode_exports = {};
 __export(decode_exports, {
-  config: () => config,
-  default: () => handler
+  default: () => decode_default
 });
 module.exports = __toCommonJS(decode_exports);
 var import_web3 = require("@solana/web3.js");
 var import_sdk = require("@walour/sdk");
-var config = { runtime: "edge" };
+
+// src/lib/adapt.ts
+function adaptForVercel(handler2) {
+  return async function(nodeReq, nodeRes) {
+    try {
+      const protocol = nodeReq.headers["x-forwarded-proto"] || "https";
+      const host = nodeReq.headers["x-forwarded-host"] || nodeReq.headers.host || "localhost";
+      const url = new URL(nodeReq.url ?? "/", `${protocol}://${host}`);
+      const chunks = [];
+      for await (const chunk of nodeReq) {
+        chunks.push(chunk);
+      }
+      const body = chunks.length > 0 ? Buffer.concat(chunks) : null;
+      const flatHeaders = {};
+      for (const [k, v] of Object.entries(nodeReq.headers)) {
+        if (v !== void 0) flatHeaders[k] = Array.isArray(v) ? v.join(", ") : v;
+      }
+      const reqInit = {
+        method: nodeReq.method ?? "GET",
+        headers: flatHeaders
+      };
+      if (body?.length) {
+        Object.assign(reqInit, { body, duplex: "half" });
+      }
+      const webReq = new Request(url.toString(), reqInit);
+      const webRes = await handler2(webReq);
+      const resHeaders = {};
+      webRes.headers.forEach((v, k) => {
+        resHeaders[k] = v;
+      });
+      nodeRes.writeHead(webRes.status, resHeaders);
+      if (webRes.body) {
+        const reader = webRes.body.getReader();
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          nodeRes.write(value);
+        }
+      }
+      nodeRes.end();
+    } catch (err) {
+      console.error("[adapt] Unhandled error:", err);
+      if (!nodeRes.headersSent) {
+        nodeRes.writeHead(500, { "Content-Type": "application/json" });
+        nodeRes.end(JSON.stringify({ error: "Internal Server Error" }));
+      }
+    }
+  };
+}
+
+// src/decode.ts
 var ALLOWED_ORIGIN = process.env.NODE_ENV === "development" ? "*" : "chrome-extension://*";
 var corsHeaders = {
   "Access-Control-Allow-Origin": ALLOWED_ORIGIN,
@@ -103,7 +152,4 @@ async function handler(req) {
     }
   });
 }
-// Annotate the CommonJS export names for ESM import in node:
-0 && (module.exports = {
-  config
-});
+var decode_default = adaptForVercel(handler);

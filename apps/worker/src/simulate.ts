@@ -1,6 +1,5 @@
 import { Connection, VersionedTransaction } from '@solana/web3.js'
-
-export const config = { runtime: 'edge' }
+import { adaptForVercel } from './lib/adapt'
 
 export interface SimDelta {
   mint: string
@@ -24,7 +23,7 @@ function getConnection(cluster: 'mainnet' | 'devnet' = 'mainnet'): Connection {
   return new Connection(url, 'confirmed')
 }
 
-export default async function handler(req: Request): Promise<Response> {
+async function handler(req: Request): Promise<Response> {
   const ALLOWED_ORIGIN = process.env.NODE_ENV === 'development' ? '*' : 'chrome-extension://*'
   const corsHeaders = {
     'Access-Control-Allow-Origin': ALLOWED_ORIGIN,
@@ -71,13 +70,15 @@ export default async function handler(req: Request): Promise<Response> {
     }
 
     // SOL delta: postBalances[0] - preBalances[0] (negative = spending SOL)
-    const pre = sim.value.preBalances ?? []
-    const post = sim.value.postBalances ?? []
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const simVal = sim.value as any
+    const pre = simVal.preBalances ?? []
+    const post = simVal.postBalances ?? []
     const solChangeLamports = (post[0] ?? 0) - (pre[0] ?? 0)
 
     // Token deltas from simulation pre/post token balances
     const preTokenMap = new Map<string, { amount: string; decimals: number; mint: string }>()
-    for (const tb of sim.value.preTokenBalances ?? []) {
+    for (const tb of simVal.preTokenBalances ?? []) {
       preTokenMap.set(`${tb.accountIndex}:${tb.mint}`, {
         amount: tb.uiTokenAmount.amount,
         decimals: tb.uiTokenAmount.decimals,
@@ -86,7 +87,7 @@ export default async function handler(req: Request): Promise<Response> {
     }
 
     const deltas: SimDelta[] = []
-    for (const tb of sim.value.postTokenBalances ?? []) {
+    for (const tb of simVal.postTokenBalances ?? []) {
       const key = `${tb.accountIndex}:${tb.mint}`
       const preTb = preTokenMap.get(key)
       const preAmount = BigInt(preTb?.amount ?? '0')
@@ -117,3 +118,5 @@ export default async function handler(req: Request): Promise<Response> {
     })
   }
 }
+
+export default adaptForVercel(handler)

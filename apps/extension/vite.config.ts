@@ -34,7 +34,7 @@ export default defineConfig(({ mode }) => {
   define: {
     '__SUPABASE_URL__': JSON.stringify(env.VITE_SUPABASE_URL ?? ''),
     '__SUPABASE_ANON_KEY__': JSON.stringify(env.VITE_SUPABASE_ANON_KEY ?? ''),
-    '__API_BASE__': JSON.stringify(env.VITE_API_BASE ?? 'https://walour-worker.vercel.app'),
+    '__API_BASE__': JSON.stringify(env.VITE_API_BASE ?? 'https://walour.vercel.app'),
   },
   build: {
     outDir: 'dist',

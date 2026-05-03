@@ -30,12 +30,63 @@ var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: tru
 // src/promote.ts
 var promote_exports = {};
 __export(promote_exports, {
-  default: () => handler
+  default: () => promote_default
 });
 module.exports = __toCommonJS(promote_exports);
 var import_supabase_js = require("@supabase/supabase-js");
 var import_web3 = require("@solana/web3.js");
 var anchor = __toESM(require("@coral-xyz/anchor"));
+
+// src/lib/adapt.ts
+function adaptForVercel(handler2) {
+  return async function(nodeReq, nodeRes) {
+    try {
+      const protocol = nodeReq.headers["x-forwarded-proto"] || "https";
+      const host = nodeReq.headers["x-forwarded-host"] || nodeReq.headers.host || "localhost";
+      const url = new URL(nodeReq.url ?? "/", `${protocol}://${host}`);
+      const chunks = [];
+      for await (const chunk of nodeReq) {
+        chunks.push(chunk);
+      }
+      const body = chunks.length > 0 ? Buffer.concat(chunks) : null;
+      const flatHeaders = {};
+      for (const [k, v] of Object.entries(nodeReq.headers)) {
+        if (v !== void 0) flatHeaders[k] = Array.isArray(v) ? v.join(", ") : v;
+      }
+      const reqInit = {
+        method: nodeReq.method ?? "GET",
+        headers: flatHeaders
+      };
+      if (body?.length) {
+        Object.assign(reqInit, { body, duplex: "half" });
+      }
+      const webReq = new Request(url.toString(), reqInit);
+      const webRes = await handler2(webReq);
+      const resHeaders = {};
+      webRes.headers.forEach((v, k) => {
+        resHeaders[k] = v;
+      });
+      nodeRes.writeHead(webRes.status, resHeaders);
+      if (webRes.body) {
+        const reader = webRes.body.getReader();
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          nodeRes.write(value);
+        }
+      }
+      nodeRes.end();
+    } catch (err) {
+      console.error("[adapt] Unhandled error:", err);
+      if (!nodeRes.headersSent) {
+        nodeRes.writeHead(500, { "Content-Type": "application/json" });
+        nodeRes.end(JSON.stringify({ error: "Internal Server Error" }));
+      }
+    }
+  };
+}
+
+// src/promote.ts
 var PROMOTE_IDL = {
   version: "0.1.0",
   name: "walour_oracle",
@@ -186,3 +237,4 @@ async function handler(req) {
     }
   );
 }
+var promote_default = adaptForVercel(handler);

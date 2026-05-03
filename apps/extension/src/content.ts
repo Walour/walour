@@ -82,7 +82,7 @@ if (typeof (window as any).__walour_content_injected === 'undefined') {
             try {
               const controller = new AbortController()
               const timeoutId = setTimeout(() => controller.abort(), 2_000)
-              const apiBase = (import.meta.env.VITE_API_BASE as string) ?? 'http://localhost:3001'
+              const apiBase = (import.meta.env.VITE_API_BASE as string) ?? 'https://walour.vercel.app'
               const res = await fetch(`${apiBase}/api/simulate`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },

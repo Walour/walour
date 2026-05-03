@@ -2,8 +2,8 @@
   "name": "@walour/worker",
   "version": "0.1.0",
   "private": true,
-  "type": "module",
   "scripts": {
+    "build": "tsup src/scan.ts src/decode.ts src/ingest.ts src/promote.ts src/purge.ts src/blink.ts --format cjs --outDir api --no-dts --no-splitting",
     "dev": "tsx watch --env-file=.env src/server.ts",
     "deploy": "vercel deploy --prod",
     "seed:chainabuse": "tsx --env-file=.env scripts/seed-chainabuse-csv.ts"
@@ -16,6 +16,7 @@
   },
   "devDependencies": {
     "@types/node": "^20.0.0",
+    "tsup": "^8.5.1",
     "tsx": "^4.21.0",
     "typescript": "^5.4.0"
   }

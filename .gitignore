@@ -14,3 +14,5 @@ apps/extension/dist/
 apps/web/tsconfig.tsbuildinfo
 *.tsbuildinfo
 apps/mobile/
+apps/worker/api/
+.vercel

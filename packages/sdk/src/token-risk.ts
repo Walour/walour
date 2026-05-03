@@ -114,6 +114,38 @@ async function runChecks(mint: string, connection: Connection): Promise<TokenRis
     }
   }
 
+  // DH-03: Token-2022 extension honeypot checks
+  if (mintInfo.status === 'fulfilled' && mintInfo.value.value) {
+    const parsed = (mintInfo.value.value.data as any)?.parsed
+    const extensions: Array<{ extension: string; state?: any }> =
+      parsed?.info?.extensions ?? []
+
+    for (const ext of extensions) {
+      // ConfidentialTransfer: balances hidden — drain amounts unverifiable
+      // Note: ext.state may be absent (account-decoder PR #24621). Presence-only check.
+      if (ext.extension === 'confidentialTransferMint') {
+        checks.confidentialTransfer = {
+          passed: false,
+          weight: 20,
+          detail: 'Token uses Confidential Transfer — balances are hidden, drain amounts are unverifiable',
+        }
+        score += 20
+      }
+      // TransferFee: honeypot pattern when basis points > 500 (>5%)
+      if (ext.extension === 'transferFeeConfig') {
+        const bps: number = ext.state?.newerTransferFee?.transferFeeBasisPoints ?? 0
+        if (bps > 500) {
+          checks.transferFee = {
+            passed: false,
+            weight: 20,
+            detail: `Token charges ${(bps / 100).toFixed(1)}% transfer fee — honeypot pattern`,
+          }
+          score += 20
+        }
+      }
+    }
+  }
+
   // Check 3: Holder concentration
   if (largestAccounts.status === 'fulfilled') {
     const accounts = largestAccounts.value.value

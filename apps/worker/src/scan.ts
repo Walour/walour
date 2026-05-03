@@ -104,7 +104,7 @@ export default async function handler(req: Request): Promise<Response> {
     })
   }
 
-  const url = new URL(req.url)
+  const url = new URL(req.url, "http://localhost")
   const hostname = url.searchParams.get('hostname')
   const txParam = url.searchParams.get('tx')
 

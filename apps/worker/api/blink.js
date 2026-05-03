@@ -29,7 +29,7 @@ async function handler(req) {
   if (req.method !== "GET") {
     return new Response("Method Not Allowed", { status: 405 });
   }
-  const url = new URL(req.url);
+  const url = new URL(req.url, "http://localhost");
   const address = url.searchParams.get("address") ?? "";
   if (!BASE58_RE.test(address)) {
     return blinkResponse({

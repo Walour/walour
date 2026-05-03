@@ -107,7 +107,7 @@ async function handler(req) {
       headers: { ...corsHeaders, "Content-Type": "application/json" }
     });
   }
-  const url = new URL(req.url);
+  const url = new URL(req.url, "http://localhost");
   const hostname = url.searchParams.get("hostname");
   const txParam = url.searchParams.get("tx");
   if (!hostname || hostname.trim() === "") {

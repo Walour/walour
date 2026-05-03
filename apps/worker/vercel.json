@@ -1,9 +1,9 @@
 {
   "devCommand": null,
   "crons": [
-    { "path": "/api/ingest", "schedule": "*/15 * * * *" },
+    { "path": "/api/ingest", "schedule": "0 0 * * *" },
     { "path": "/api/purge", "schedule": "0 2 * * *" },
-    { "path": "/api/promote", "schedule": "0 * * * *" }
+    { "path": "/api/promote", "schedule": "0 3 * * *" }
   ],
   "rewrites": [
     { "source": "/api/scan", "destination": "/src/scan.ts" },

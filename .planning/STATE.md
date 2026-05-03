@@ -4,8 +4,8 @@ milestone: v1.0
 milestone_name: milestone
 current_plan: Not started
 status: unknown
-stopped_at: Completed 06-03-PLAN.md
-last_updated: "2026-05-03T13:53:10.977Z"
+stopped_at: Completed 06-04-PLAN.md
+last_updated: "2026-05-03T13:58:32.651Z"
 progress:
   total_phases: 2
   completed_phases: 2
@@ -23,8 +23,8 @@ progress:
 
 **Phase 06 — Detection Hardening**
 **Current Plan:** Not started
-**Last session:** 2026-05-03T13:53:07.615Z
-**Stopped at:** Completed 06-03-PLAN.md
+**Last session:** 2026-05-03T13:58:32.644Z
+**Stopped at:** Completed 06-04-PLAN.md
 
 ## Completed Phases
 
@@ -69,6 +69,8 @@ progress:
 - durable_nonce is AMBER/informational only — no attack language; hardware wallet/multisig/scheduled payment are legitimate uses
 - multi_drain suppressed when any DEX_PROGRAMS member present — Jupiter/Orca/Raydium swaps routinely close 3+ token accounts
 - System Program Assign uses 4-byte slice(0,8) LE u32 discriminator; Token program uses 1-byte slice(0,2)
+- Path alias @walour/sdk/lib/cache added to worker tsconfig to access Redis cache module without re-exporting from SDK public index (DH-05)
+- getTokenSymbol uses AbortSignal.timeout(3000) for Jupiter fetch; cache key token:meta:{mint} TTL 3600s; missing API key returns undefined without blocking sim (DH-05)
 
 ## Performance Metrics
 
@@ -85,4 +87,5 @@ progress:
 | Phase 06 P02 | 5min | 1 tasks | 1 files |
 | Phase 06 P03 | 8min | 1 tasks | 1 files |
 | Phase 06 P01 | 2 min | 2 tasks | 1 files |
+| Phase 06 P04 | 10 min | 2 tasks | 4 files |
 

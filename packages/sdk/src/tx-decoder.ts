@@ -21,8 +21,11 @@ const DEX_PROGRAMS = new Set([
 const TOKEN_PROGRAM = 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA'
 const TOKEN_2022_PROGRAM = 'TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb'
 
+// System Program ID
+const SYSTEM_PROGRAM = '11111111111111111111111111111111'
+
 interface RedFlag {
-  type: 'set_authority' | 'close_account' | 'unlimited_approve' | 'corpus_hit' | 'permanent_delegate'
+  type: 'set_authority' | 'close_account' | 'unlimited_approve' | 'corpus_hit' | 'permanent_delegate' | 'assign_account' | 'durable_nonce' | 'multi_drain'
   detail: string
 }
 
@@ -78,6 +81,24 @@ function detectRedFlags(
         type: 'permanent_delegate',
         detail: 'Token mint has PermanentDelegate — issuer can drain any holder account at any time',
       })
+    }
+
+    // DH-01 / DH-02: System Program instructions (4-byte little-endian u32 discriminator)
+    if (ix.program === SYSTEM_PROGRAM) {
+      const first4 = ix.dataHex.slice(0, 8) // 4 bytes = 8 hex chars (little-endian u32)
+      if (first4 === '01000000') {
+        const target = ix.accounts[0] ?? 'unknown'
+        flags.push({
+          type: 'assign_account',
+          detail: `Account ${target} ownership is being transferred to a new program — ownership-hijack pattern`,
+        })
+      }
+      if (first4 === '04000000') {
+        flags.push({
+          type: 'durable_nonce',
+          detail: 'Transaction uses a durable nonce — it never expires and can be replayed at any future time',
+        })
+      }
     }
 
     // Check all account keys against corpus

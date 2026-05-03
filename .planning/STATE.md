@@ -4,8 +4,8 @@ milestone: v1.0
 milestone_name: milestone
 current_plan: Not started
 status: unknown
-stopped_at: Completed 06-02-PLAN.md
-last_updated: "2026-05-03T13:52:46.366Z"
+stopped_at: Completed 06-01-PLAN.md
+last_updated: "2026-05-03T13:53:10.977Z"
 progress:
   total_phases: 2
   completed_phases: 2
@@ -23,8 +23,8 @@ progress:
 
 **Phase 04 — Extension Overlay Redesign**
 **Current Plan:** Not started
-**Last session:** 2026-05-03T13:52:46.359Z
-**Stopped at:** Completed 06-02-PLAN.md
+**Last session:** 2026-05-03T13:53:07.615Z
+**Stopped at:** Completed 06-01-PLAN.md
 
 ## Completed Phases
 
@@ -36,6 +36,7 @@ progress:
 - Phase 4 Plan 03: popup three-state redesign (idle/scanning/verdict) (2026-04-30) ✓
 - Phase 4 Plan 04: overlay redesign — glass card, verdict band, meter, press-and-hold (2026-04-30) ✓
 - Phase 4 Plan 05: micro-interactions — scalePing, .ping modifiers, canonical reduced-motion guard (2026-04-30) ✓
+- Phase 6 Plan 01: tx-decoder assign_account + durable_nonce + multi_drain detection (2026-05-03) ✓
 
 ## Active Decisions
 
@@ -63,6 +64,9 @@ progress:
 - ConfidentialTransfer (Token-2022) flagged on extension presence alone — ext.state intentionally absent per account-decoder PR #24621; presence-only is correct
 - TransferFee (Token-2022) honeypot threshold: > 500 bps (>5%) — sub-5% fees exist on legitimate protocols
 - Token-2022 ext field path is parsed?.info?.extensions (NOT parsed?.extensions) — RESEARCH.md Pitfall 2
+- durable_nonce is AMBER/informational only — no attack language; hardware wallet/multisig/scheduled payment are legitimate uses
+- multi_drain suppressed when any DEX_PROGRAMS member present — Jupiter/Orca/Raydium swaps routinely close 3+ token accounts
+- System Program Assign uses 4-byte slice(0,8) LE u32 discriminator; Token program uses 1-byte slice(0,2)
 
 ## Performance Metrics
 
@@ -78,4 +82,5 @@ progress:
 | Phase 05 P04 | 5 min | 2 tasks | 2 files |
 | Phase 06 P02 | 5min | 1 tasks | 1 files |
 | Phase 06 P03 | 8min | 1 tasks | 1 files |
+| Phase 06 P01 | 2 min | 2 tasks | 1 files |
 

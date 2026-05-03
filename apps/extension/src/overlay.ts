@@ -8,6 +8,7 @@ const SVG_NS = 'http://www.w3.org/2000/svg'
 
 export interface SimDelta {
   mint: string
+  symbol?: string  // DH-05: enriched from Jupiter V1 by worker
   change: number
   decimals: number
   uiChange: string
@@ -665,7 +666,7 @@ export function updateSimulation(deltas: SimDelta[], solChangeLamports: number):
     parts.push((sol >= 0 ? '+' : '') + sol.toFixed(4) + ' SOL')
   }
   for (const d of deltas) {
-    parts.push(d.uiChange + ' ' + d.mint.slice(0, 4) + '...')
+    parts.push(d.uiChange + ' ' + (d.symbol ?? (d.mint.slice(0, 4) + '...')))
   }
   if (parts.length === 0) return
   simRowRef.textContent = parts.join('   ')

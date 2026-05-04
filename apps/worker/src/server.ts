@@ -16,7 +16,11 @@ import mobileStatsHandler from './mobile-stats'
 
 const PORT = process.env.PORT ? parseInt(process.env.PORT) : 3000
 
-const routes: Record<string, (req: Request) => Promise<Response>> = {
+type NodeHandler = (req: http.IncomingMessage, res: http.ServerResponse) => Promise<void>
+type WebHandler = (req: Request) => Promise<Response>
+type AnyHandler = NodeHandler | WebHandler
+
+const routes: Record<string, AnyHandler> = {
   '/api/scan': scanHandler,
   '/api/decode': decodeHandler,
   '/api/blink': blinkHandler,
@@ -30,63 +34,52 @@ const routes: Record<string, (req: Request) => Promise<Response>> = {
   '/api/mobile/stats': mobileStatsHandler,
 }
 
-// Adapt Node IncomingMessage → Web Request → Web Response → Node ServerResponse
-async function nodeToEdge(
+async function dispatch(
   nodeReq: http.IncomingMessage,
   nodeRes: http.ServerResponse
 ): Promise<void> {
   const url = new URL(nodeReq.url ?? '/', `http://localhost:${PORT}`)
-  const pathname = url.pathname
-
-  const handler = routes[pathname]
+  const handler = routes[url.pathname]
   if (!handler) {
     nodeRes.writeHead(404, { 'Content-Type': 'application/json' })
-    nodeRes.end(JSON.stringify({ error: `No handler for ${pathname}` }))
+    nodeRes.end(JSON.stringify({ error: `No handler for ${url.pathname}` }))
     return
   }
-
-  // Buffer request body
-  const chunks: Buffer[] = []
-  for await (const chunk of nodeReq) {
-    chunks.push(chunk as Buffer)
-  }
-  const body = chunks.length > 0 ? Buffer.concat(chunks) : null
-
-  // Flatten multi-value headers (Node allows string[], Web Request does not)
-  const flatHeaders: Record<string, string> = {}
-  for (const [k, v] of Object.entries(nodeReq.headers)) {
-    if (v !== undefined) flatHeaders[k] = Array.isArray(v) ? v.join(', ') : v
-  }
-
-  const reqInit: RequestInit = {
-    method: nodeReq.method ?? 'GET',
-    headers: flatHeaders,
-  }
-  if (body?.length) {
-    Object.assign(reqInit, { body, duplex: 'half' })
-  }
-  const webReq = new Request(url.toString(), reqInit)
-
-  const webRes = await handler(webReq)
-
-  // Flatten response headers (Headers entries() can have multi-values)
-  const resHeaders: Record<string, string> = {}
-  webRes.headers.forEach((v, k) => { resHeaders[k] = v })
-  nodeRes.writeHead(webRes.status, resHeaders)
-
-  if (webRes.body) {
-    const reader = webRes.body.getReader()
-    while (true) {
-      const { done, value } = await reader.read()
-      if (done) break
-      nodeRes.write(value)
+  // Handlers wrapped with adaptForVercel accept (IncomingMessage, ServerResponse).
+  // Raw Web API handlers (mobile routes) accept (Request) and return Response.
+  if (handler.length >= 2) {
+    await (handler as NodeHandler)(nodeReq, nodeRes)
+  } else {
+    const chunks: Buffer[] = []
+    for await (const chunk of nodeReq) chunks.push(chunk as Buffer)
+    const body = chunks.length ? Buffer.concat(chunks) : null
+    const flat: Record<string, string> = {}
+    for (const [k, v] of Object.entries(nodeReq.headers)) {
+      if (v !== undefined) flat[k] = Array.isArray(v) ? v.join(', ') : v
     }
+    const webReq = new Request(url.toString(), {
+      method: nodeReq.method ?? 'GET',
+      headers: flat,
+      ...(body?.length ? { body, duplex: 'half' } : {}),
+    } as RequestInit)
+    const webRes = await (handler as WebHandler)(webReq)
+    const resHeaders: Record<string, string> = {}
+    webRes.headers.forEach((v, k) => { resHeaders[k] = v })
+    nodeRes.writeHead(webRes.status, resHeaders)
+    if (webRes.body) {
+      const reader = webRes.body.getReader()
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        nodeRes.write(value)
+      }
+    }
+    nodeRes.end()
   }
-  nodeRes.end()
 }
 
 const server = http.createServer((req, res) => {
-  nodeToEdge(req, res).catch(err => {
+  dispatch(req, res).catch(err => {
     console.error('[server] Unhandled error:', err)
     if (!res.headersSent) {
       res.writeHead(500, { 'Content-Type': 'application/json' })

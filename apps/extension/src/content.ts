@@ -76,12 +76,17 @@ if (typeof (window as any).__walour_content_injected === 'undefined') {
             originalFn(tx, opts).then(resolve).catch(reject)
             return
           }
+          // Reset per-scan state — prevents duplicates when user clicks sign multiple times
+          _scanDomainLevel = 'GREEN'
+          _scanTokenLevel  = 'GREEN'
+          _scanThreats     = []
+          _scanConfidence  = 0
 
-          // Fire-and-forget simulation — 2s timeout, never blocks overlay
+          // Fire-and-forget simulation — 5s timeout, never blocks overlay
           ;(async () => {
             try {
               const controller = new AbortController()
-              const timeoutId = setTimeout(() => controller.abort(), 2_000)
+              const timeoutId = setTimeout(() => controller.abort(), 5_000)
               const apiBase = (import.meta.env.VITE_API_BASE as string) ?? 'https://walour.vercel.app'
               const res = await fetch(`${apiBase}/api/simulate`, {
                 method: 'POST',
@@ -181,7 +186,7 @@ if (typeof (window as any).__walour_content_injected === 'undefined') {
         _scanDomainLevel = (domain.level as 'GREEN' | 'AMBER' | 'RED') ?? 'GREEN'
         const text = domain.reason || (_scanDomainLevel === 'RED' ? 'Phishing site detected' : _scanDomainLevel === 'AMBER' ? 'Suspicious domain' : 'Domain looks safe')
         updateRow('url', _scanDomainLevel, text)
-        if (_scanDomainLevel !== 'GREEN') _scanThreats.push(text)
+        if (_scanDomainLevel === 'RED') _scanThreats.push(text)
         if (domain.confidence != null) _scanConfidence = Math.max(_scanConfidence, domain.confidence)
       } else {
         updateRow('url', 'GREEN', 'Domain looks safe')
@@ -191,7 +196,7 @@ if (typeof (window as any).__walour_content_injected === 'undefined') {
         _scanTokenLevel = (token.level as 'GREEN' | 'AMBER' | 'RED') ?? 'GREEN'
         const text = token.reasons?.[0] || (_scanTokenLevel === 'RED' ? 'High-risk token' : _scanTokenLevel === 'AMBER' ? 'Token caution advised' : 'Token looks safe')
         updateRow('token', _scanTokenLevel, text)
-        if (_scanTokenLevel !== 'GREEN' && token.reasons?.length) _scanThreats.push(...token.reasons)
+        if (_scanTokenLevel === 'RED' && token.reasons?.length) _scanThreats.push(...token.reasons)
         if (token.score != null && _scanTokenLevel !== 'GREEN') _scanConfidence = Math.max(_scanConfidence, token.score / 100)
       } else {
         updateRow('token', 'GREEN', 'No token risk detected')
@@ -202,7 +207,7 @@ if (typeof (window as any).__walour_content_injected === 'undefined') {
     } else if (msg.type === 'STREAM_CHUNK') {
       appendStream(msg.chunk as string)
     } else if (msg.type === 'STREAM_DONE') {
-      updateRow('tx', 'GREEN', '')
+      updateRow('tx', 'GREEN', null)
       const overall = worstLevel(_scanDomainLevel, _scanTokenLevel)
       // Confidence: use real data if available, otherwise reflect how thorough the check was
       const confidence = _scanConfidence > 0

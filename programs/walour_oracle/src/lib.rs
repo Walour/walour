@@ -9,6 +9,9 @@ const THREAT_REPORT_SIZE: usize = 8 + 32 + 1 + 32 + 128 + 1 + 8 + 8 + 4 + 1;
 // Reporter: 8 + 32 + 4 + 1 + 8 + 1
 const REPORTER_SIZE: usize = 8 + 32 + 4 + 1 + 8 + 1;
 
+// Corroboration: 8 + 32 + 8 + 1
+const CORROBORATION_SIZE: usize = 8 + 32 + 8 + 1;
+
 // OracleConfig: 8 + 32 + 1
 const ORACLE_CONFIG_SIZE: usize = 8 + 32 + 1;
 
@@ -58,7 +61,12 @@ pub mod walour_oracle {
             reporter.confidence_avg = 0;
             reporter.bump = ctx.bumps.reporter;
         }
+        let prev_count = reporter.reports_submitted as u32;
         reporter.reports_submitted = reporter.reports_submitted.saturating_add(1);
+        // Running average: new_avg = (old_avg * prev_count + new_confidence) / new_count
+        let new_count = reporter.reports_submitted as u32;
+        let new_avg = ((reporter.confidence_avg as u32 * prev_count) + 40) / new_count;
+        reporter.confidence_avg = new_avg.min(100) as u8;
         reporter.last_active = clock.unix_timestamp;
 
         emit!(ThreatSubmitted {
@@ -83,6 +91,10 @@ pub mod walour_oracle {
         ));
         report.confidence = new_confidence;
         report.last_updated = clock.unix_timestamp;
+
+        ctx.accounts.corroboration.reporter = ctx.accounts.signer.key();
+        ctx.accounts.corroboration.timestamp = clock.unix_timestamp;
+        ctx.accounts.corroboration.bump = ctx.bumps.corroboration;
 
         emit!(ReportCorroborated {
             address: report.address,
@@ -144,6 +156,13 @@ pub struct Reporter {
     pub reports_submitted: u32,
     pub confidence_avg: u8,
     pub last_active: i64,
+    pub bump: u8,
+}
+
+#[account]
+pub struct Corroboration {
+    pub reporter: Pubkey,
+    pub timestamp: i64,
     pub bump: u8,
 }
 
@@ -223,7 +242,19 @@ pub struct CorroborateReport<'info> {
     )]
     pub threat_report: Account<'info, ThreatReport>,
 
+    #[account(
+        init,
+        payer = signer,
+        space = CORROBORATION_SIZE,
+        seeds = [b"corroboration", _address.as_ref(), signer.key().as_ref()],
+        bump
+    )]
+    pub corroboration: Account<'info, Corroboration>,
+
+    #[account(mut)]
     pub signer: Signer<'info>,
+
+    pub system_program: Program<'info, System>,
 }
 
 #[derive(Accounts)]
@@ -243,8 +274,6 @@ pub struct UpdateConfidence<'info> {
     pub oracle_config: Account<'info, OracleConfig>,
 
     pub authority: Signer<'info>,
-
-    pub system_program: Program<'info, System>,
 }
 
 // ---------------------------------------------------------------------------
@@ -279,14 +308,8 @@ pub struct ConfidenceUpdated {
 
 #[error_code]
 pub enum WalourError {
-    #[msg("Report already exists for this address")]
-    ReportAlreadyExists,
-    #[msg("Report not found for this address")]
-    ReportNotFound,
     #[msg("Unauthorized")]
     Unauthorized,
-    #[msg("Evidence URL too long")]
-    EvidenceUrlTooLong,
     #[msg("Confidence score must be 0-100")]
     InvalidConfidence,
 }

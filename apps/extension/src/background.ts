@@ -89,9 +89,16 @@ function deriveLevel(domain: ScanResult['domain'], token: ScanResult['token']): 
 }
 
 function deriveConfidence(domain: ScanResult['domain'], token: ScanResult['token']): number {
-  // Naive: 1.0 if both present, 0.5 if one, 0 if neither. Wave 4 may refine.
-  const have = (domain ? 1 : 0) + (token ? 1 : 0)
-  return have / 2
+  // domain.confidence is 0–1 threat confidence; token.score is a risk metric, not the same scale.
+  // Only use domain.confidence — fall back to level defaults when it's 0 (no signal).
+  const domConf = typeof (domain as any)?.confidence === 'number'
+    ? (domain as any).confidence as number
+    : undefined
+
+  if (domConf !== undefined && domConf > 0) return domConf
+
+  const level = deriveLevel(domain, token)
+  return level === 'RED' ? 0.85 : level === 'AMBER' ? 0.55 : level === 'GREEN' ? 0.75 : 0
 }
 
 function getApiBase(): Promise<string> {
@@ -110,17 +117,23 @@ async function handleScanTx(
 ): Promise<void> {
   const apiBase = await getApiBase()
 
-  // Run scan (domain + token risk check)
-  try {
-    const scanUrl = `${apiBase}/api/scan?hostname=${encodeURIComponent(hostname)}&tx=${encodeURIComponent(txBase64)}`
-    const scanRes = await fetch(scanUrl, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    })
+  // Run scan (domain + token risk check) — up to 3 attempts with exponential backoff
+  const scanUrl = `${apiBase}/api/scan?hostname=${encodeURIComponent(hostname)}&tx=${encodeURIComponent(txBase64)}`
+  let scanRes: Response | null = null
+  let lastErr: unknown = null
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      if (attempt > 0) await new Promise(r => setTimeout(r, 300 * 2 ** (attempt - 1)))
+      scanRes = await fetch(scanUrl, { method: 'GET', headers: { 'Content-Type': 'application/json' } })
+      if (scanRes.ok) break
+      lastErr = `HTTP ${scanRes.status}`
+    } catch (err) {
+      lastErr = err
+    }
+  }
 
-    if (scanRes.ok) {
+  try {
+    if (scanRes?.ok) {
       const { domain, token } = await scanRes.json()
       port.postMessage({ type: 'SCAN_RESULT', domain, token })
       if (tabId !== undefined) {

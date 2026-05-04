@@ -25,9 +25,6 @@ export default async function StatsPage() {
     confidenceBuckets,
   } = await fetchStats()
 
-  const hasTypeData = Object.values(typeBreakdown).some(v => v > 0)
-  const hasConfData = confidenceBuckets.some(v => v > 0)
-
   return (
     <main>
       <div className="container" style={{ paddingTop: 60, paddingBottom: 80 }}>
@@ -58,20 +55,18 @@ export default async function StatsPage() {
           solSaved={solSaved}
         />
 
-        {/* Charts row */}
-        {(hasTypeData || hasConfData) && (
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
-              gap: 20,
-              margin: '24px 0',
-            }}
-          >
-            {hasTypeData && <TypeDonut typeBreakdown={typeBreakdown} />}
-            {hasConfData && <ConfHistogram confidenceBuckets={confidenceBuckets} />}
-          </div>
-        )}
+        {/* Charts row — always shown; components handle empty-state internally */}
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+            gap: 20,
+            margin: '24px 0',
+          }}
+        >
+          <TypeDonut typeBreakdown={typeBreakdown} isEmpty={!Object.values(typeBreakdown).some(v => v > 0)} />
+          <ConfHistogram confidenceBuckets={confidenceBuckets} isEmpty={!confidenceBuckets.some(v => v > 0)} />
+        </div>
 
         {/* Top 10 threats table */}
         <div style={{ marginTop: 24 }}>

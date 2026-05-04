@@ -118,7 +118,7 @@ export default function StatGrid({ threatsTracked, drainsBlocked, solSaved }: St
       <StatCard
         label="Threats Tracked"
         value={threatsTracked.toLocaleString()}
-        delta="+12 today"
+        delta={undefined}
         icon={<EyeIcon />}
         tickInterval={3500}
         tickMax={2}
@@ -126,7 +126,7 @@ export default function StatGrid({ threatsTracked, drainsBlocked, solSaved }: St
       <StatCard
         label="Drains Blocked"
         value={drainsBlocked.toLocaleString()}
-        delta="+3 today"
+        delta={undefined}
         icon={<ShieldIcon />}
         tickInterval={4200}
         tickMax={1}
@@ -134,7 +134,7 @@ export default function StatGrid({ threatsTracked, drainsBlocked, solSaved }: St
       <StatCard
         label="SOL Saved"
         value={solSaved.toFixed(2)}
-        delta="+12.5 SOL"
+        delta={undefined}
         icon={<SolIcon />}
         tickInterval={5000}
         tickMax={5}

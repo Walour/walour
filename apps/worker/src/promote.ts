@@ -178,6 +178,13 @@ export default async function handler(
         programId
       )
 
+      // Skip rows whose ThreatReport PDA doesn't exist on-chain yet
+      const pdaInfo = await connection.getAccountInfo(threatReportPda)
+      if (!pdaInfo) {
+        console.warn(`[promote] PDA not found on-chain for ${row.address} — skipping`)
+        continue
+      }
+
       // Confidence stored as 0–1 in Supabase, on-chain expects 0–100
       const onChainScore = Math.min(100, Math.round(row.confidence * 100))
 

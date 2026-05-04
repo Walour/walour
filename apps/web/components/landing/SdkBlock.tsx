@@ -15,12 +15,16 @@ const PM_COMMANDS: Record<string, string> = {
 }
 
 const SDK_LINES: CodeLine[] = [
-  { type: 'plain', text: "import { Walour } from '@walour/sdk'" },
+  { type: 'plain', text: "import { checkDomain, checkTokenRisk, decodeTransaction } from '@walour/sdk'" },
   { type: 'plain', text: '' },
-  { type: 'plain', text: "const walour = new Walour({ network: 'mainnet-beta' })" },
+  { type: 'comment', text: '// Domain check: real-time threat detection' },
+  { type: 'plain', text: "const domain = await checkDomain('suspicious-airdrop.xyz')" },
+  { type: 'comment', text: "// → { level: 'RED', confidence: 0.95 }" },
   { type: 'plain', text: '' },
-  { type: 'plain', text: 'const result = await walour.check(transaction)' },
-  { type: 'plain', text: "if (result.risk === 'HIGH') dontSign()" },
+  { type: 'comment', text: '// Stream AI explanation before signing' },
+  { type: 'plain', text: 'for await (const chunk of decodeTransaction(tx)) {' },
+  { type: 'plain', text: "  overlay.append(chunk)  // first token < 400ms" },
+  { type: 'plain', text: '}' },
 ]
 
 export default function SdkBlock() {
@@ -97,10 +101,10 @@ export default function SdkBlock() {
                 Cache-first lookups. Sub-100ms warm, under 400ms cold.
               </li>
               <li className="sdk-bullet">
-                Streaming Claude analysis. First token under 400ms.
+                Streaming AI analysis. First token under 400ms.
               </li>
               <li className="sdk-bullet">
-                Circuit breakers on every provider. Helius, GoPlus, Claude, all wrapped.
+                Circuit breakers on every provider. Built for production uptime.
               </li>
             </ul>
 

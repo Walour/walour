@@ -85,7 +85,9 @@ function findLikelyMint(accounts: PublicKey[]): string | null {
 
 export default async function handler(req: Request): Promise<Response> {
   const ALLOWED_ORIGIN =
-    process.env.NODE_ENV === 'development' ? '*' : 'chrome-extension://*'
+    process.env.NODE_ENV === 'development'
+      ? '*'
+      : `chrome-extension://${process.env.EXTENSION_ID}`
 
   const corsHeaders = {
     'Access-Control-Allow-Origin': ALLOWED_ORIGIN,
@@ -119,28 +121,24 @@ export default async function handler(req: Request): Promise<Response> {
   let mintAddress: string | null = null
   let altWarning = false
 
+  let resolvedAccounts: PublicKey[] | null = null
   if (txParam) {
     try {
-      const txBytes = Buffer.from(txParam, 'base64')
-      const tx = VersionedTransaction.deserialize(txBytes)
+      const tx = VersionedTransaction.deserialize(Buffer.from(txParam, 'base64'))
       const { accounts, failed: altFailed } = await resolveAccounts(tx, connection)
       if (altFailed) altWarning = true
+      resolvedAccounts = accounts
       mintAddress = findLikelyMint(accounts)
     } catch {
-      // Malformed tx — continue without mint detection
       mintAddress = null
     }
   }
 
   // Check all non-program tx accounts against the threat corpus
   let drainerHit: { address: string; confidence: number } | null = null
-  if (txParam) {
+  if (resolvedAccounts) {
     try {
-      const txBytes = Buffer.from(txParam, 'base64')
-      const tx = VersionedTransaction.deserialize(txBytes)
-      const { accounts, failed: altFailed } = await resolveAccounts(tx, connection)
-      if (altFailed) altWarning = true
-      const nonProgram = accounts.filter(k => !KNOWN_PROGRAMS.has(k.toBase58()))
+      const nonProgram = resolvedAccounts.filter(k => !KNOWN_PROGRAMS.has(k.toBase58()))
       const hits = await Promise.all(nonProgram.map(k => lookupAddress(k.toBase58())))
       const first = hits.find(h => h !== null)
       if (first) drainerHit = { address: first.address, confidence: first.confidence }

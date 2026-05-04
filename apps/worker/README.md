@@ -122,3 +122,17 @@ Confidence accumulates on repeated sightings (`+= delta * 0.1`) and is capped at
 - A single bad row never crashes the worker — it is logged to `ingestion_errors` and skipped.
 - A source API being down logs a warning and records an entry in `outages`; the rest of the run proceeds normally.
 - The entire fetch phase has a 55-second global timeout (Vercel limit is 60s).
+
+---
+
+## API Endpoints
+
+| Endpoint | Method | Description |
+|---|---|---|
+| `/api/scan` | GET | Domain + token risk scan. Params: `hostname`, `tx` (optional base64 tx) |
+| `/api/decode` | POST | Stream Claude Haiku explanation of a transaction. Body: `{ txBase64: string }` |
+| `/api/simulate` | POST | Pre-sign balance delta simulation. Body: `{ txBase64: string }` |
+| `/api/ingest` | GET | Cron: ingest threat data from GoPlus + ScamSniffer into Supabase |
+| `/api/promote` | GET | Cron: promote high-confidence Supabase threats to on-chain oracle |
+| `/api/purge` | GET | Cron: purge stale low-confidence threat entries (runs every 2h) |
+| `/api/blink` | GET | Dialect Blink — share a threat report as a shareable action URL |

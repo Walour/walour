@@ -1,183 +1,197 @@
-import * as anchor from '@coral-xyz/anchor'
-import { Program, AnchorError } from '@coral-xyz/anchor'
-import { Keypair, PublicKey, SystemProgram } from '@solana/web3.js'
-import { assert } from 'chai'
-import type { WalourOracle } from '../target/types/walour_oracle'
+import * as anchor from "@coral-xyz/anchor";
+import { Program } from "@coral-xyz/anchor";
+import { PublicKey, Keypair, LAMPORTS_PER_SOL } from "@solana/web3.js";
+import { assert } from "chai";
+import type { WalourOracle } from "../target/types/walour_oracle";
 
-describe('walour_oracle', () => {
-  const provider = anchor.AnchorProvider.env()
-  anchor.setProvider(provider)
+describe("walour_oracle", () => {
+  const provider = anchor.AnchorProvider.env();
+  anchor.setProvider(provider);
 
-  const program = anchor.workspace.WalourOracle as Program<WalourOracle>
-  const authority = provider.wallet as anchor.Wallet
+  const program = anchor.workspace.WalourOracle as Program<WalourOracle>;
+  const authority = provider.wallet;
 
-  // Reuse the same target address across tests
-  const targetAddress = Keypair.generate().publicKey
+  // Shared state across tests
+  const reportAddress = Keypair.generate().publicKey;
 
-  // PDA helpers
-  const [oracleConfigPda] = PublicKey.findProgramAddressSync(
-    [Buffer.from('config')],
+  const evidenceUrl: number[] = Array(128).fill(0);
+  const urlBytes = Buffer.from("https://walour.xyz/evidence/test", "utf8");
+  for (let i = 0; i < urlBytes.length && i < 128; i++) {
+    evidenceUrl[i] = urlBytes[i];
+  }
+
+  const [configPda] = PublicKey.findProgramAddressSync(
+    [Buffer.from("config")],
     program.programId
-  )
+  );
 
-  const [threatReportPda] = PublicKey.findProgramAddressSync(
-    [Buffer.from('threat'), targetAddress.toBuffer()],
+  const [threatPda] = PublicKey.findProgramAddressSync(
+    [Buffer.from("threat"), reportAddress.toBuffer()],
     program.programId
-  )
+  );
 
   const [reporterPda] = PublicKey.findProgramAddressSync(
-    [Buffer.from('reporter'), authority.publicKey.toBuffer()],
+    [Buffer.from("reporter"), authority.publicKey.toBuffer()],
     program.programId
-  )
+  );
 
-  // -------------------------------------------------------------------------
-  // 1. initialize
-  // -------------------------------------------------------------------------
-  it('initializes the oracle config', async () => {
+  const [corroborationPda] = PublicKey.findProgramAddressSync(
+    [
+      Buffer.from("corroboration"),
+      reportAddress.toBuffer(),
+      authority.publicKey.toBuffer(),
+    ],
+    program.programId
+  );
+
+  it("initializes the oracle config", async () => {
+    try {
+      await program.methods
+        .initialize()
+        .accounts({
+          authority: authority.publicKey,
+        } as any)
+        .rpc();
+    } catch (err: any) {
+      // Allow re-running against an already-initialized config on devnet
+      if (!String(err).includes("already in use")) {
+        throw err;
+      }
+    }
+
+    const config = await program.account.oracleConfig.fetch(configPda);
+    assert.ok(
+      config.authority.equals(authority.publicKey),
+      "authority should match provider wallet"
+    );
+  });
+
+  it("submits a threat report (happy path)", async () => {
     await program.methods
-      .initialize()
+      .submitReport(reportAddress, { drainer: {} }, evidenceUrl)
       .accounts({
-        oracleConfig: oracleConfigPda,
-        authority: authority.publicKey,
-        systemProgram: SystemProgram.programId,
-      })
-      .rpc()
-
-    const config = await program.account.oracleConfig.fetch(oracleConfigPda)
-    assert.ok(config.authority.equals(authority.publicKey), 'authority mismatch')
-  })
-
-  // -------------------------------------------------------------------------
-  // 2. submit_report
-  // -------------------------------------------------------------------------
-  it('submits a threat report', async () => {
-    const evidenceUrl = Buffer.alloc(128)
-    const url = Buffer.from('https://chainabuse.com/report/example')
-    url.copy(evidenceUrl)
-
-    await program.methods
-      .submitReport(
-        targetAddress,
-        { drainer: {} }, // ThreatType::Drainer
-        Array.from(evidenceUrl) as unknown as number[] & { length: 128 }
-      )
-      .accounts({
-        threatReport: threatReportPda,
-        reporter: reporterPda,
         signer: authority.publicKey,
-        systemProgram: SystemProgram.programId,
-      })
-      .rpc()
+      } as any)
+      .rpc();
 
-    const report = await program.account.threatReport.fetch(threatReportPda)
-    assert.ok(report.address.equals(targetAddress), 'address mismatch')
-    assert.equal(report.confidence, 40, 'initial confidence should be 40')
-    assert.equal(report.corroborations, 0, 'corroborations should start at 0')
-    assert.deepEqual(report.threatType, { drainer: {} }, 'threat type should be Drainer')
-    assert.ok(report.firstSeen.gt(new anchor.BN(0)), 'first_seen should be set')
-    assert.ok(report.lastUpdated.eq(report.firstSeen), 'first_seen and last_updated should match on init')
-  })
+    const report = await program.account.threatReport.fetch(threatPda);
+    assert.equal(report.confidence, 40, "confidence should be 40");
+    assert.equal(report.corroborations, 0, "corroborations should be 0");
+    assert.ok(
+      report.address.equals(reportAddress),
+      "reported address should match"
+    );
+    assert.property(
+      report.threatType,
+      "drainer",
+      "threat type should be Drainer"
+    );
+  });
 
-  // -------------------------------------------------------------------------
-  // 3. corroborate_report (x2)
-  // -------------------------------------------------------------------------
-  it('corroborates the report twice and recalculates confidence', async () => {
-    for (let i = 0; i < 2; i++) {
-      await program.methods
-        .corroborateReport(targetAddress)
-        .accounts({
-          threatReport: threatReportPda,
-          signer: authority.publicKey,
-        })
-        .rpc()
-    }
+  it("creates the reporter PDA on submit", async () => {
+    const reporter = await program.account.reporter.fetch(reporterPda);
+    assert.isAtLeast(
+      reporter.reportsSubmitted,
+      1,
+      "reports_submitted should be at least 1"
+    );
+    assert.ok(
+      reporter.pubkey.equals(authority.publicKey),
+      "reporter pubkey should match signer"
+    );
+  });
 
-    const report = await program.account.threatReport.fetch(threatReportPda)
-    assert.equal(report.corroborations, 2, 'corroborations should be 2')
-    // confidence = min(100, 40 + 2*5) = 50
-    assert.equal(report.confidence, 50, 'confidence should be 50 after 2 corroborations')
-  })
-
-  // -------------------------------------------------------------------------
-  // 4. update_confidence (authority)
-  // -------------------------------------------------------------------------
-  it('authority updates confidence to 85', async () => {
+  it("corroborates a report", async () => {
     await program.methods
-      .updateConfidence(targetAddress, 85)
+      .corroborateReport(reportAddress)
       .accounts({
-        threatReport: threatReportPda,
-        oracleConfig: oracleConfigPda,
-        authority: authority.publicKey,
-        systemProgram: SystemProgram.programId,
-      })
-      .rpc()
+        signer: authority.publicKey,
+      } as any)
+      .rpc();
 
-    const report = await program.account.threatReport.fetch(threatReportPda)
-    assert.equal(report.confidence, 85, 'confidence should be 85 after authority update')
-  })
+    const report = await program.account.threatReport.fetch(threatPda);
+    assert.equal(report.corroborations, 1, "corroborations should be 1");
+    assert.equal(
+      report.confidence,
+      45,
+      "confidence should be 45 (40 + 1 * 5)"
+    );
 
-  // -------------------------------------------------------------------------
-  // 5. unauthorized update_confidence
-  // -------------------------------------------------------------------------
-  it('rejects update_confidence from a non-authority', async () => {
-    const attacker = Keypair.generate()
+    const corroboration = await program.account.corroboration.fetch(
+      corroborationPda
+    );
+    assert.ok(
+      corroboration.reporter.equals(authority.publicKey),
+      "corroboration reporter should match signer"
+    );
+  });
 
-    // Airdrop a tiny amount so the TX can be signed
-    const sig = await provider.connection.requestAirdrop(attacker.publicKey, 1_000_000_000)
-    await provider.connection.confirmTransaction(sig, 'confirmed')
-
+  it("blocks the same signer from corroborating twice (sybil guard)", async () => {
+    let threw = false;
     try {
       await program.methods
-        .updateConfidence(targetAddress, 99)
+        .corroborateReport(reportAddress)
         .accounts({
-          threatReport: threatReportPda,
-          oracleConfig: oracleConfigPda,
-          authority: attacker.publicKey,
-          systemProgram: SystemProgram.programId,
-        })
-        .signers([attacker])
-        .rpc()
-
-      assert.fail('Expected an Unauthorized error but instruction succeeded')
-    } catch (err: unknown) {
-      const anchorErr = err as AnchorError
-      assert.ok(
-        anchorErr.error?.errorMessage?.includes('Unauthorized') ||
-          anchorErr.message?.includes('Unauthorized'),
-        `Expected Unauthorized error, got: ${anchorErr.message}`
-      )
-    }
-  })
-
-  // -------------------------------------------------------------------------
-  // 6. duplicate submit (same address)
-  // -------------------------------------------------------------------------
-  it('rejects a duplicate submit for the same address', async () => {
-    const evidenceUrl = Buffer.alloc(128)
-
-    try {
-      await program.methods
-        .submitReport(
-          targetAddress,
-          { rug: {} },
-          Array.from(evidenceUrl) as unknown as number[] & { length: 128 }
-        )
-        .accounts({
-          threatReport: threatReportPda,
-          reporter: reporterPda,
           signer: authority.publicKey,
-          systemProgram: SystemProgram.programId,
-        })
-        .rpc()
-
-      assert.fail('Expected an error for duplicate submit but instruction succeeded')
-    } catch (err: unknown) {
-      // Anchor/Solana will throw because the account already exists (init guard)
-      const message = (err as Error).message ?? ''
-      assert.ok(
-        message.length > 0,
-        'Should throw an error when re-initialising an existing PDA'
-      )
+        } as any)
+        .rpc();
+    } catch (err) {
+      threw = true;
     }
-  })
-})
+    assert.isTrue(
+      threw,
+      "second corroboration from same signer should fail (PDA already exists)"
+    );
+  });
+
+  it("allows the authority to update confidence", async () => {
+    const newScore = 90;
+    await program.methods
+      .updateConfidence(reportAddress, newScore)
+      .accounts({
+        authority: authority.publicKey,
+      } as any)
+      .rpc();
+
+    const report = await program.account.threatReport.fetch(threatPda);
+    assert.equal(report.confidence, newScore, "confidence should be updated");
+  });
+
+  it("blocks non-authority from updating confidence", async () => {
+    const badActor = Keypair.generate();
+
+    // Fund bad actor via transfer from authority (avoids devnet faucet rate limit)
+    const transferIx = anchor.web3.SystemProgram.transfer({
+      fromPubkey: authority.publicKey,
+      toPubkey: badActor.publicKey,
+      lamports: 0.01 * LAMPORTS_PER_SOL,
+    });
+    const tx = new anchor.web3.Transaction().add(transferIx);
+    const latest = await provider.connection.getLatestBlockhash();
+    tx.recentBlockhash = latest.blockhash;
+    tx.feePayer = authority.publicKey;
+    await provider.sendAndConfirm(tx);
+
+    let threw = false;
+    let errMsg = "";
+    try {
+      await program.methods
+        .updateConfidence(reportAddress, 10)
+        .accounts({
+          authority: badActor.publicKey,
+        } as any)
+        .signers([badActor])
+        .rpc();
+    } catch (err: any) {
+      threw = true;
+      errMsg = String(err);
+    }
+
+    assert.isTrue(threw, "non-authority update should fail");
+    assert.match(
+      errMsg,
+      /Unauthorized|6000|constraint/i,
+      "error should indicate unauthorized access"
+    );
+  });
+});

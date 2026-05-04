@@ -1,6 +1,6 @@
 # Walour — System Architecture
 
-**Version:** v3 · **Date:** 2026-04-17
+**Version:** v4 · **Date:** 2026-05-03
 
 ---
 
@@ -29,8 +29,9 @@ User Browser / Mobile
 F-SDK-01   F-SDK-02                       F-SDK-03
 Token      Transaction                    URL/Domain
 Risk       Decoder                        Check
-Scorer     (Claude                        (GoPlus +
-(Helius    Sonnet 4.6)                    Corpus)
+Scorer     (Claude                        (Homoglyph +
+(Helius    Sonnet 4.6)                    Corpus +
++ GoPlus)                                 GoPlus)
 + GoPlus)
     │          │                              │
     └──────────┴──────────────────────────────┘
@@ -60,8 +61,8 @@ Scorer     (Claude                        (GoPlus +
                ┌───────────────┼──────────────┐
                │               │              │
                ▼               ▼              ▼
-         Chainabuse      Scam Sniffer    Twitter v2
-         CSV             X API           scrape
+         Scam Sniffer    GoPlus          Twitter v2
+         (60k domains)   token/domain    scrape
 ```
 
 ---
@@ -109,9 +110,9 @@ Vercel Cron job, runs every 15 minutes.
 
 ```
 F-SDK-00 worker
-  → fetch Chainabuse CSV (since last_updated)
-  → fetch Scam Sniffer feed
-  → fetch Twitter v2 search results
+  → fetch Scam Sniffer all.json (up to 60k phishing domains)
+  → fetch GoPlus known-malicious Solana token list
+  → fetch Twitter v2 search results (if TWITTER_BEARER_TOKEN set)
   → normalize each entry (base58 validate / lowercase domain)
   → dedup against Supabase
     → exists? increment confidence + update last_updated
@@ -121,8 +122,8 @@ F-SDK-00 worker
 ```
 
 **Source confidence weights:**
-- Chainabuse: 0.9
 - Scam Sniffer: 0.85
+- GoPlus: 0.8
 - Community report: 0.4 (until corroborated)
 - Twitter scrape: 0.3 (until corroborated)
 
@@ -207,7 +208,7 @@ Aggregated on the public dashboard at `walour.xyz/stats`.
 1. User clicks "Sign" in wallet popup
 2. Extension intercepts signTransaction call
 3. Run in parallel:
-   a. checkDomain(currentUrl)       → Redis → GoPlus/corpus
+   a. checkDomain(currentUrl)       → Redis → Homoglyph check → corpus → GoPlus
    b. checkTokenRisk(tokenMint)     → Redis → Helius + GoPlus
    c. decodeTransaction(tx)         → Redis → Claude Sonnet 4.6 (streaming)
          ↓ if VersionedTransaction
@@ -277,8 +278,7 @@ create table outages (
 | Triton | RPC fallback | API key |
 | GoPlus Security | Token malicious check, phishing domain check | API key |
 | Anthropic (Claude Sonnet 4.6 / Haiku 4.5) | Transaction decoder, streaming output | API key |
-| Chainabuse | Threat corpus CSV ingestion | Public endpoint |
-| Scam Sniffer | Drainer feed | X API token |
+| Scam Sniffer | Phishing domain feed (60k domains via GitHub DB) | None (public) |
 | Twitter v2 | Scam keyword scrape | Bearer token |
 | Upstash Redis | Caching | REST token |
 | Supabase | DB + Edge Functions + PostgREST | Service role key |

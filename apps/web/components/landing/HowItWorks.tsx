@@ -223,7 +223,7 @@ export default function HowItWorks() {
             <div>
               <h3 className="step-title">Scan</h3>
               <p className="step-body">
-                Every signing request is checked against the on-chain oracle, a Claude-powered transaction decoder, and corroborated community reports. Total budget: 400ms.
+                Every signing request is checked against our threat oracle, analyzed by AI, and cross-referenced with verified community reports. All before the popup appears.
               </p>
             </div>
           </div>

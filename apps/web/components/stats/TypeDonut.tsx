@@ -1,5 +1,6 @@
 interface TypeDonutProps {
   typeBreakdown: Record<string, number>
+  isEmpty?: boolean
 }
 
 const SEGMENT_META: Record<string, { label: string; color: string }> = {
@@ -10,7 +11,7 @@ const SEGMENT_META: Record<string, { label: string; color: string }> = {
 }
 const FALLBACK_COLORS = ['#6366F1', '#EC4899', '#14B8A6', '#84CC16']
 
-export default function TypeDonut({ typeBreakdown }: TypeDonutProps) {
+export default function TypeDonut({ typeBreakdown, isEmpty }: TypeDonutProps) {
   // Build segments dynamically from whatever types are in the DB
   const entries = Object.entries(typeBreakdown).filter(([, v]) => v > 0)
   const total = entries.reduce((sum, [, v]) => sum + v, 0)
@@ -57,6 +58,20 @@ export default function TypeDonut({ typeBreakdown }: TypeDonutProps) {
         Threat Type Breakdown
       </p>
 
+      {isEmpty ? (
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            height: 160,
+            color: 'var(--text-muted)',
+            fontSize: 13,
+          }}
+        >
+          No data yet
+        </div>
+      ) : (
       <div style={{ display: 'flex', alignItems: 'center', gap: 24, flexWrap: 'wrap' }}>
         {/* Donut */}
         <div style={{ position: 'relative', flexShrink: 0 }}>
@@ -130,6 +145,7 @@ export default function TypeDonut({ typeBreakdown }: TypeDonutProps) {
           ))}
         </ul>
       </div>
+      )}
     </div>
   )
 }

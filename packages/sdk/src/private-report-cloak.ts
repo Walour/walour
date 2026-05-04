@@ -111,7 +111,7 @@ export async function submitPrivateReportCloak(
   // 1. Initialise Cloak SDK with payer keypair (Node.js mode)
   const sdk = new CloakSDK({
     keypairBytes: payer.secretKey,
-    network: 'devnet',
+    network: (process.env.CLOAK_NETWORK as 'mainnet-beta' | 'devnet') ?? 'mainnet-beta',
   })
 
   // 2. Deposit into Cloak shielded pool — produces a CloakNote

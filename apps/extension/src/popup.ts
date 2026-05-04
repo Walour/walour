@@ -71,12 +71,13 @@ function renderScanning(scan: ScanResult): void {
 }
 
 function renderVerdict(scan: ScanResult): void {
-  const isRisk = scan.level === 'RED' || scan.level === 'AMBER'
+  const isRed  = scan.level === 'RED'
+  const isAmber = scan.level === 'AMBER'
   const isSafe = scan.level === 'GREEN'
 
   const band = $('verdict-band')
   if (band) {
-    band.className = 'ext-verdict ' + (isRisk ? 'is-risk' : isSafe ? 'is-safe' : '')
+    band.className = 'ext-verdict ' + (isRed ? 'is-risk' : isAmber ? 'is-warn' : isSafe ? 'is-safe' : '')
     // scale-ping on entry
     if (!band.classList.contains('ping')) {
       band.classList.add('ping')
@@ -91,7 +92,7 @@ function renderVerdict(scan: ScanResult): void {
       : scan.level === 'GREEN' ? 'Safe'
       : 'Unknown'
     label.textContent = labelText
-    label.className = 'ext-verdict-label ' + (isRisk ? 'danger' : isSafe ? 'safe' : '')
+    label.className = 'ext-verdict-label ' + (isRed ? 'danger' : isAmber ? 'warn' : isSafe ? 'safe' : '')
   }
 
   const sub = $('verdict-sub')
@@ -139,7 +140,7 @@ function renderVerdict(scan: ScanResult): void {
   const pct = Math.round((scan.confidence ?? 0) * 100)
   if (fill) {
     fill.style.width = `${pct}%`
-    fill.className = 'ext-meter-fill ' + (isRisk ? 'danger' : 'safe')
+    fill.className = 'ext-meter-fill ' + (isRed ? 'danger' : isAmber ? 'warn' : 'safe')
   }
   setText('meter-pct', `${pct}%`)
 
@@ -227,27 +228,66 @@ function wireIdle(): void {
     })
   }
 
-  // Lookup form
+  // Lookup form — inline result, no page navigation
   const form = document.getElementById('ext-lookup-form') as HTMLFormElement | null
-  form?.addEventListener('submit', (e) => {
+  form?.addEventListener('submit', async (e) => {
     e.preventDefault()
     const input = document.getElementById('ext-lookup-input') as HTMLInputElement | null
     const q = (input?.value ?? '').trim()
     if (!q) return
-    chrome.tabs.create({ url: `https://walour.xyz/lookup?q=${encodeURIComponent(q)}` })
+
+    const resultEl  = document.getElementById('lookup-result')
+    const labelEl   = document.getElementById('lookup-result-label')
+    const reasonEl  = document.getElementById('lookup-result-reason')
+    const btn       = document.getElementById('ext-lookup-btn') as HTMLButtonElement | null
+
+    const bandEl = document.getElementById('lookup-result-band')
+    if (resultEl && bandEl && labelEl && reasonEl) {
+      labelEl.textContent = 'Checking...'
+      labelEl.className = 'ext-verdict-label'
+      bandEl.className = 'ext-verdict is-scanning'
+      reasonEl.textContent = ''
+      resultEl.style.display = 'block'
+      if (btn) btn.disabled = true
+
+      try {
+        const apiBase = await new Promise<string>(resolve =>
+          chrome.storage.sync.get(['apiBase'], r => resolve((r['apiBase'] as string) || __API_BASE__))
+        )
+        const res = await fetch(`${apiBase}/api/scan?hostname=${encodeURIComponent(q)}`)
+        const data = res.ok ? await res.json() : null
+        const domain = data?.domain as { level?: string; reason?: string } | null
+
+        const level = (domain?.level ?? 'UNKNOWN').toUpperCase()
+        const reason = domain?.reason ?? 'No data returned.'
+        const tag = level === 'RED' ? 'High risk' : level === 'AMBER' ? 'Caution' : level === 'GREEN' ? 'Safe' : 'Unknown'
+
+        bandEl.className = 'ext-verdict ' + (level === 'RED' ? 'is-risk' : level === 'AMBER' ? 'is-warn' : level === 'GREEN' ? 'is-safe' : '')
+        labelEl.className = 'ext-verdict-label ' + (level === 'RED' ? 'danger' : level === 'AMBER' ? 'warn' : level === 'GREEN' ? 'safe' : '')
+        labelEl.textContent = tag
+        reasonEl.textContent = reason
+      } catch {
+        bandEl.className = 'ext-verdict'
+        labelEl.className = 'ext-verdict-label'
+        labelEl.textContent = 'Unavailable'
+        reasonEl.textContent = 'Could not reach the scan service. Is the worker running?'
+      } finally {
+        if (btn) btn.disabled = false
+      }
+    }
   })
 
   // Stats link (intercept to use chrome.tabs.create for consistency)
   const statsLink = document.getElementById('stats-link')
   statsLink?.addEventListener('click', (e) => {
     e.preventDefault()
-    chrome.tabs.create({ url: 'https://walour.xyz/stats' })
+    chrome.tabs.create({ url: 'https://walour.io/stats' })
   })
 
   // Verdict CTAs (no-op if no scan; real wiring via background in v0.2)
   document.getElementById('verdict-block')?.addEventListener('click', () => { window.close() })
   document.getElementById('verdict-details')?.addEventListener('click', () => {
-    chrome.tabs.create({ url: 'https://walour.xyz/registry' })
+    chrome.tabs.create({ url: 'https://walour.io/registry' })
   })
 }
 

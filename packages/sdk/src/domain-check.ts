@@ -74,9 +74,12 @@ export async function lookupAddress(pubkey: string): Promise<ThreatReport | null
         //   73–200: evidence_url ([u8; 128])
         //   201   : confidence (u8, 0–100)
         const confidence = accountInfo.data[201] / 100
+        const THREAT_TYPES = ['drainer', 'rug', 'phishing_domain', 'malicious_token'] as const
+        const typeIndex = accountInfo.data[40] ?? 0
+        const threatType = THREAT_TYPES[typeIndex] ?? 'drainer'
         const chainResult: ThreatReport = {
           address: pubkey,
-          type: 'drainer', // default — full deserialization requires IDL
+          type: threatType,
           source: 'on-chain',
           confidence,
           first_seen: new Date().toISOString(),
@@ -228,11 +231,21 @@ export async function checkDomain(hostname: string): Promise<DomainRiskResult> {
   const cached = await cacheGet<DomainRiskResult>(cacheKey)
   if (cached) return cached
 
+  // Fast-path: known canonical domains are always GREEN — check before any heuristics.
+  const lowerHost = hostname.toLowerCase()
+  for (const canonicals of Object.values(BRAND_CANONICALS)) {
+    if (canonicals.some(c => isCanonicalOrSubdomain(lowerHost, c))) {
+      const result: DomainRiskResult = { level: 'GREEN', reason: 'Verified legitimate domain.', confidence: 0.99, source: 'walour' }
+      await cacheSet(cacheKey, result, DOMAIN_TTL)
+      return result
+    }
+  }
+
   // DH-06: Fail-fast homoglyph check — definitive IDN homograph signal.
   if (hasHomoglyphRisk(hostname)) {
     const result: DomainRiskResult = {
       level: 'RED',
-      reason: 'Domain contains non-ASCII or Punycode characters — likely impersonating a known site',
+      reason: 'Domain contains non-ASCII or Punycode characters. Likely impersonating a known site.',
       confidence: 0.9,
       source: 'walour',
     }
@@ -248,7 +261,7 @@ export async function checkDomain(hostname: string): Promise<DomainRiskResult> {
   if (hosting) {
     const result: DomainRiskResult = {
       level: 'RED',
-      reason: `Hosted on ${hosting.platform} with "${hosting.brand}" in the subdomain — wallet brands do not deploy on public hosting platforms.`,
+      reason: `Hosted on ${hosting.platform} with "${hosting.brand}" in the subdomain. Wallet brands do not deploy on public hosting platforms.`,
       confidence: 0.92,
       source: 'walour-heuristic',
     }
@@ -261,7 +274,7 @@ export async function checkDomain(hostname: string): Promise<DomainRiskResult> {
       level: 'RED',
       reason: riskTld
         ? `Hostname contains "${squat.brand}" but is not a canonical ${squat.brand} domain, and uses high-risk TLD .${riskTld}.`
-        : `Hostname contains "${squat.brand}" but is not a canonical ${squat.brand} domain — likely impersonation.`,
+        : `Hostname contains "${squat.brand}" but is not a canonical ${squat.brand} domain. Likely impersonation.`,
       confidence: riskTld ? 0.95 : 0.88,
       source: 'walour-heuristic',
     }
@@ -301,11 +314,11 @@ export async function checkDomain(hostname: string): Promise<DomainRiskResult> {
     result = { level: 'RED', reason: `Domain registered ${days} day${days === 1 ? '' : 's'} ago and uses high-risk TLD .${riskTld}.`, confidence: 0.75, source: 'walour-heuristic' }
   } else if (isNewDomain) {
     // Age < 14d alone → AMBER
-    result = { level: 'AMBER', reason: `Domain registered ${days} day${days === 1 ? '' : 's'} ago — verify before signing.`, confidence: 0.55, source: 'walour-heuristic' }
+    result = { level: 'AMBER', reason: `Domain registered ${days} day${days === 1 ? '' : 's'} ago. Treat with caution.`, confidence: 0.55, source: 'walour-heuristic' }
   } else if (riskTld) {
-    result = { level: 'AMBER', reason: `Not in threat databases, but uses high-risk TLD .${riskTld} — elevated phishing prevalence. Verify before signing.`, confidence: 0.35, source: 'walour-heuristic' }
+    result = { level: 'AMBER', reason: `High-risk TLD .${riskTld}. No known threats, but verify before signing.`, confidence: 0.35, source: 'walour-heuristic' }
   } else {
-    result = { level: 'AMBER', reason: 'Not found in threat databases — verify before signing.', confidence: 0, source: undefined }
+    result = { level: 'AMBER', reason: 'No threats detected. Domain unrecognized.', confidence: 0, source: undefined }
   }
 
   await cacheSet(cacheKey, result, DOMAIN_TTL)

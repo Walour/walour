@@ -1,6 +1,7 @@
 interface CircuitState {
   failures: number
   openedAt: number | null
+  firstFailureAt: number | null
 }
 
 const state = new Map<string, CircuitState>()
@@ -20,14 +21,20 @@ export function isOpen(name: string): boolean {
 }
 
 export function recordFailure(name: string): void {
-  const s = state.get(name) ?? { failures: 0, openedAt: null }
+  const s = state.get(name) ?? { failures: 0, openedAt: null, firstFailureAt: null }
+  const now = Date.now()
+  if (s.firstFailureAt !== null && now - s.firstFailureAt > WINDOW_MS) {
+    s.failures = 0
+    s.firstFailureAt = null
+  }
+  if (s.firstFailureAt === null) s.firstFailureAt = now
   s.failures++
-  if (s.failures >= THRESHOLD) s.openedAt = Date.now()
+  if (s.failures >= THRESHOLD) s.openedAt = now
   state.set(name, s)
 }
 
 export function recordSuccess(name: string): void {
-  state.set(name, { failures: 0, openedAt: null })
+  state.set(name, { failures: 0, openedAt: null, firstFailureAt: null })
 }
 
 export async function withBreaker<T>(

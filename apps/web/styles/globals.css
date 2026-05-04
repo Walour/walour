@@ -638,10 +638,98 @@ table.threats tbody tr:hover { background: rgba(255, 255, 255, 0.015); }
 /* ---------- Footer ---------- */
 .foot {
   border-top: 1px solid var(--border);
-  padding: 24px;
   color: var(--text-muted);
   font-size: 13px;
-  text-align: center;
+}
+
+.foot-inner {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 48px;
+  padding: 48px 24px 36px;
+}
+
+.foot-brand { display: flex; flex-direction: column; gap: 10px; }
+
+.foot-brand-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text);
+  font-weight: 700;
+  font-size: 14px;
+  letter-spacing: 0.08em;
+  text-decoration: none !important;
+}
+.foot-brand-link:hover { color: var(--accent); }
+
+.foot-brand-name { color: var(--text); }
+
+.foot-tagline {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 13px;
+  max-width: 200px;
+  line-height: 1.5;
+}
+
+.foot-nav {
+  display: flex;
+  gap: 48px;
+}
+
+.foot-col {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.foot-col-label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 2px;
+}
+
+.foot-col a {
+  color: var(--text-muted);
+  text-decoration: none;
+  transition: color 0.15s;
+}
+.foot-col a:hover { color: var(--text); text-decoration: none; }
+
+.foot-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 24px;
+  border-top: 1px solid var(--border);
+}
+
+.foot-copy { color: var(--text-muted); font-size: 12px; }
+
+.foot-social {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.foot-social a {
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  transition: color 0.15s;
+  text-decoration: none !important;
+}
+.foot-social a:hover { color: var(--text); }
+
+@media (max-width: 640px) {
+  .foot-inner { flex-direction: column; gap: 32px; padding: 36px 24px 24px; }
+  .foot-nav { gap: 32px; }
+  .foot-bar { flex-direction: column; gap: 12px; text-align: center; }
 }
 
 /* ---------- Stats Strip ---------- */
@@ -1996,31 +2084,22 @@ td.col-date { white-space: nowrap; color: var(--text-muted); }
 .json-safe   { color: var(--safe);   font-weight: 600; }
 .json-muted  { color: var(--text-muted); }
 
-/* ---------- CTA Banner enhancements ---------- */
+/* ---------- CTA Banner ---------- */
 .cta-inner {
   position: relative;
   overflow: hidden;
   border-radius: var(--radius-lg);
   border: 1px solid rgba(0,201,167,.2);
-  box-shadow: 0 0 80px rgba(0,201,167,.1);
+  box-shadow: 0 0 80px rgba(0,201,167,.08);
   padding: 64px 48px;
   text-align: center;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
 }
-.cta-sweep-layer {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  overflow: hidden;
+.cta-inner:hover {
+  border-color: rgba(0,201,167,.35);
+  box-shadow: 0 0 100px rgba(0,201,167,.15);
+  transform: translateY(-2px);
 }
-.cta-sweep-layer::before {
-  content: '';
-  position: absolute;
-  top: 0; bottom: 0;
-  width: 40%;
-  background: linear-gradient(120deg, transparent, rgba(0,201,167,.12), transparent);
-  animation: sweepBanner 7s linear infinite;
-}
-.cta-btn-pulse { animation: ctaPulse 2.5s ease-out infinite; }
 .btn-mono {
   font-family: var(--mono) !important;
   font-size: 13px !important;

@@ -9,7 +9,6 @@ const TIMEOUT_MS = 55_000 // total budget; Vercel limit is 60s
 const FETCH_TIMEOUT_MS = 15_000 // per-source HTTP timeout
 
 const SOURCE_WEIGHTS: Record<string, number> = {
-  chainabuse: 0.9,
   scam_sniffer: 0.85,
   goplus: 0.8,
   community: 0.4,
@@ -31,7 +30,7 @@ const VALID_TYPES = new Set(['drainer', 'rug', 'phishing_domain', 'malicious_tok
 interface RawEntry {
   address: string
   type: string
-  source: 'chainabuse' | 'scam_sniffer' | 'goplus' | 'community' | 'twitter'
+  source: 'scam_sniffer' | 'goplus' | 'community' | 'twitter'
   evidence_url?: string | null
 }
 
@@ -90,79 +89,6 @@ function withTimeout(promise: Promise<Response>, ms: number): Promise<Response> 
 }
 
 // ---------------------------------------------------------------------------
-// fetchChainabuse — tries REST v0 first, falls back to GraphQL
-// REST endpoint: GET https://api.chainabuse.com/v0/reports?chain=solana&limit=500
-// GraphQL endpoint: POST https://api.chainabuse.com/graphql (original attempt)
-// ---------------------------------------------------------------------------
-
-async function fetchChainabuse(): Promise<RawEntry[]> {
-  // Attempt 1: REST v0 endpoint (preferred — GraphQL returns 404)
-  try {
-    const res = await withTimeout(
-      fetch('https://api.chainabuse.com/v0/reports?chain=solana&limit=500', {
-        headers: {
-          'User-Agent': 'Walour-Ingest/1.0',
-          Accept: 'application/json',
-        },
-      }),
-      FETCH_TIMEOUT_MS
-    )
-
-    if (res.ok) {
-      const json = await res.json() as {
-        reports?: Array<{
-          address?: string
-          reportedAddress?: string
-          type?: string
-          category?: string
-          evidenceUrl?: string
-        }>
-      }
-
-      const reports = json?.reports ?? []
-      if (reports.length > 0) {
-        return reports.map(r => ({
-          address: r.address ?? r.reportedAddress ?? '',
-          type: normaliseType(r.type ?? r.category),
-          source: 'chainabuse' as const,
-          evidence_url: r.evidenceUrl ?? null,
-        }))
-      }
-      // Empty but 200 — fall through to GraphQL
-    }
-    console.warn(`[ingest] Chainabuse REST returned HTTP ${res.status} — trying GraphQL`)
-  } catch (err) {
-    console.warn(`[ingest] Chainabuse REST threw: ${err instanceof Error ? err.message : String(err)} — trying GraphQL`)
-  }
-
-  // Attempt 2: GraphQL endpoint (original body; kept as fallback)
-  const body = JSON.stringify({
-    query: `query { reports(chain: "SOL", limit: 500) { address type { type } reportedUrl } }`,
-  })
-  const res = await withTimeout(
-    fetch('https://api.chainabuse.com/graphql', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'User-Agent': 'Walour-Ingest/1.0' },
-      body,
-    }),
-    FETCH_TIMEOUT_MS
-  )
-
-  if (!res.ok) throw new Error(`Chainabuse GraphQL HTTP ${res.status}`)
-
-  const json = await res.json() as {
-    data?: { reports?: Array<{ address?: string; type?: { type?: string }; reportedUrl?: string }> }
-  }
-
-  return (json?.data?.reports ?? []).map(r => ({
-    address: r.address ?? '',
-    type: normaliseType(r.type?.type),
-    source: 'chainabuse' as const,
-    evidence_url: r.reportedUrl ?? null,
-  }))
-}
-
-// ---------------------------------------------------------------------------
 // fetchScamSniffer — tries three URL paths in order
 // 1. main/blacklist/solana.json  (original path)
 // 2. main/solana/blacklist.json  (alternate layout)
@@ -171,7 +97,7 @@ async function fetchChainabuse(): Promise<RawEntry[]> {
 
 // ScamSniffer all.json — contains 4k+ EVM addresses + 345k phishing domains
 const SCAM_SNIFFER_ALL_URL = 'https://raw.githubusercontent.com/scamsniffer/scam-database/main/blacklist/all.json'
-const SCAM_SNIFFER_DOMAIN_LIMIT = 10_000 // cap per run to stay within Vercel timeout
+const SCAM_SNIFFER_DOMAIN_LIMIT = 60_000 // raised from 10k — full list is ~50k domains
 
 async function fetchScamSniffer(): Promise<RawEntry[]> {
   const res = await withTimeout(
@@ -218,8 +144,11 @@ async function fetchGoPlus(): Promise<RawEntry[]> {
   if (GOPLUS_SEED_MINTS.length === 0) return []
 
   const addresses = GOPLUS_SEED_MINTS.join(',')
+  // Correct GoPlus Solana endpoint: /api/v1/solana/token_security (not /api/v1/token_security/solana)
+  // Pass GOPLUS_API_KEY as apikey query param if set (raises rate limits on authenticated tier)
+  const apiKeyParam = process.env.GOPLUS_API_KEY ? `&apikey=${process.env.GOPLUS_API_KEY}` : ''
   const res = await withTimeout(
-    fetch(`https://api.gopluslabs.io/api/v1/token_security/solana?contract_addresses=${addresses}`, {
+    fetch(`https://api.gopluslabs.io/api/v1/solana/token_security?contract_addresses=${addresses}${apiKeyParam}`, {
       headers: { 'User-Agent': 'Walour-Ingest/1.0', Accept: 'application/json' },
     }),
     FETCH_TIMEOUT_MS
@@ -227,22 +156,28 @@ async function fetchGoPlus(): Promise<RawEntry[]> {
 
   if (!res.ok) throw new Error(`GoPlus HTTP ${res.status}`)
 
+  // GoPlus /api/v1/solana/token_security returns nested objects for each risk attribute.
+  // status "1" means the authority/feature is active (risky); "0" means disabled (safe).
   const json = await res.json() as {
     result?: Record<string, {
-      is_mintable?: string
-      is_proxy?: string
-      can_take_back_ownership?: string
-      owner_change_balance?: string
+      mintable?: { status?: string }
+      freezable?: { status?: string }
+      transfer_fee?: { status?: string }
+      metadata_mutable?: { status?: string }
+      trusted_token?: number
     }>
   }
 
   const entries: RawEntry[] = []
   for (const [addr, data] of Object.entries(json?.result ?? {})) {
-    // Flag as malicious_token if any high-risk attribute is set
+    // Skip tokens explicitly marked trusted (e.g. wSOL)
+    if (data.trusted_token === 1) continue
+
+    // Flag as malicious_token if any high-risk attribute is active
     const isRisky =
-      data.is_mintable === '1' ||
-      data.can_take_back_ownership === '1' ||
-      data.owner_change_balance === '1'
+      data.mintable?.status === '1' ||
+      data.freezable?.status === '1' ||
+      data.transfer_fee?.status === '1'
 
     if (isRisky) {
       entries.push({
@@ -462,7 +397,6 @@ export default async function handler(_req: Request): Promise<Response> {
   try {
     allEntries = await Promise.race([
       Promise.all([
-        runSource(supabase, 'chainabuse', fetchChainabuse),
         runSource(supabase, 'scam_sniffer', fetchScamSniffer),
         runSource(supabase, 'goplus', fetchGoPlus),
         runSource(supabase, 'twitter', fetchTwitter),

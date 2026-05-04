@@ -1,10 +1,11 @@
 interface ConfHistogramProps {
   confidenceBuckets: [number, number, number, number]
+  isEmpty?: boolean
 }
 
 const BUCKET_LABELS = ['0–25%', '26–50%', '51–75%', '76–100%'] as const
 
-export default function ConfHistogram({ confidenceBuckets }: ConfHistogramProps) {
+export default function ConfHistogram({ confidenceBuckets, isEmpty }: ConfHistogramProps) {
   const maxVal = Math.max(...confidenceBuckets, 1)
   const BAR_HEIGHT = 120
 
@@ -31,6 +32,20 @@ export default function ConfHistogram({ confidenceBuckets }: ConfHistogramProps)
         Confidence Distribution
       </p>
 
+      {isEmpty ? (
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            height: BAR_HEIGHT + 40,
+            color: 'var(--text-muted)',
+            fontSize: 13,
+          }}
+        >
+          No data yet
+        </div>
+      ) : (
       <div
         style={{
           display: 'flex',
@@ -102,6 +117,7 @@ export default function ConfHistogram({ confidenceBuckets }: ConfHistogramProps)
           )
         })}
       </div>
+      )}
     </div>
   )
 }

@@ -102,6 +102,7 @@ const OVERLAY_CSS = `
     transition: background 300ms ease;
   }
   .walour-verdict.is-risk     { background: var(--danger-soft); border-left: 3px solid var(--danger); }
+  .walour-verdict.is-warn     { background: rgba(245,158,11,.08); border-left: 3px solid var(--warning); }
   .walour-verdict.is-scanning { background: var(--accent-soft); border-left: 3px solid var(--accent); }
   .walour-verdict.is-safe     { background: rgba(34,197,94,.06); border-left: 3px solid var(--safe); }
   .walour-verdict-label {
@@ -110,6 +111,7 @@ const OVERLAY_CSS = `
     line-height: 1.1;
   }
   .walour-verdict-label.danger   { color: var(--danger); }
+  .walour-verdict-label.warn     { color: var(--warning); }
   .walour-verdict-label.scanning { color: var(--accent); }
   .walour-verdict-label.safe     { color: var(--safe); }
   .walour-verdict-sub {
@@ -532,7 +534,7 @@ export function hideOverlay(): void {
 export function updateRow(
   key: 'url' | 'token' | 'tx',
   level: 'checking' | 'GREEN' | 'AMBER' | 'RED',
-  text: string
+  text: string | null  // null = update dot only, preserve existing text
 ): void {
   if (!shadowRoot) return
   const rows = Array.from(shadowRoot.querySelectorAll('.walour-row'))
@@ -542,7 +544,7 @@ export function updateRow(
     const dot = el.querySelector('.walour-dot')
     const textEl = el.querySelector('.walour-text')
     if (dot) dot.className = `walour-dot ${level}`
-    if (textEl) {
+    if (textEl && text !== null) {
       if (key === 'tx') {
         while (textEl.firstChild) textEl.removeChild(textEl.firstChild)
         streamTextNode = document.createTextNode(text)
@@ -578,14 +580,15 @@ export function setVerdict(
   const labelEl = shadowRoot.querySelector('[data-key="verdict-label"]') as HTMLElement | null
   const subEl   = shadowRoot.querySelector('[data-key="verdict-sub"]')   as HTMLElement | null
 
-  const isRisk = level === 'RED' || level === 'AMBER'
+  const isRed  = level === 'RED'
+  const isAmber = level === 'AMBER'
   const isSafe = level === 'GREEN'
 
   if (band) {
-    band.className = 'walour-verdict ' + (isRisk ? 'is-risk' : isSafe ? 'is-safe' : 'is-scanning')
+    band.className = 'walour-verdict ' + (isRed ? 'is-risk' : isAmber ? 'is-warn' : isSafe ? 'is-safe' : 'is-scanning')
   }
   if (labelEl) {
-    labelEl.className = 'walour-verdict-label ' + (isRisk ? 'danger' : isSafe ? 'safe' : 'scanning')
+    labelEl.className = 'walour-verdict-label ' + (isRed ? 'danger' : isAmber ? 'warn' : isSafe ? 'safe' : 'scanning')
     labelEl.textContent =
       level === 'RED'   ? 'High risk: drainer detected' :
       level === 'AMBER' ? 'Caution: review before signing' :

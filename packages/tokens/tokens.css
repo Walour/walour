@@ -126,6 +126,7 @@
   transition: background 300ms ease;
 }
 .ext-verdict.is-risk     { background: var(--danger-soft); border-left: 3px solid var(--danger); }
+.ext-verdict.is-warn     { background: rgba(245,158,11,.08); border-left: 3px solid var(--warning); }
 .ext-verdict.is-scanning { background: var(--accent-soft); border-left: 3px solid var(--accent); }
 .ext-verdict.is-safe     { background: rgba(34,197,94,.06); border-left: 3px solid var(--safe); }
 .ext-verdict-icon { flex-shrink: 0; margin-top: 2px; }
@@ -136,6 +137,7 @@
   line-height: 1.1;
 }
 .ext-verdict-label.danger   { color: var(--danger); }
+.ext-verdict-label.warn     { color: var(--warning); }
 .ext-verdict-label.scanning { color: var(--accent); }
 .ext-verdict-label.safe     { color: var(--safe); }
 .ext-verdict-sub {
@@ -157,6 +159,7 @@
 .ext-meter-track { height: 5px; background: var(--border); border-radius: 3px; overflow: hidden; }
 .ext-meter-fill  { height: 100%; border-radius: 3px; transition: width 600ms ease-out; width: 0%; }
 .ext-meter-fill.danger { background: var(--danger); }
+.ext-meter-fill.warn   { background: var(--warning); }
 .ext-meter-fill.safe   { background: var(--accent); }
 .ext-meter-pct { font-size: 12px; font-weight: 600; }
 
@@ -227,6 +230,8 @@
 .ext-btn.ghost:hover { background: rgba(239,68,68,.08); }
 .ext-btn.accent { background: var(--accent); color: var(--bg); border-color: var(--accent); }
 .ext-btn.accent:hover { filter: brightness(1.08); }
+.ext-btn.muted { background: transparent; border-color: var(--border); color: var(--text-muted); }
+.ext-btn.muted:hover { border-color: var(--text-muted); color: var(--text); }
 .ext-popup.shake { animation: popupShake 80ms ease-in-out 3; }
 
 /* Scanning state (progress bar + check rows) */

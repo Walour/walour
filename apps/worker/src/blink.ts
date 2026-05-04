@@ -18,7 +18,7 @@ export default async function handler(req: Request): Promise<Response> {
   if (!BASE58_RE.test(address)) {
     return blinkResponse({
       title: 'Walour Threat Check',
-      icon: 'https://walour.xyz/logo.png',
+      icon: 'https://walour.io/logo.png',
       description: 'Invalid Solana address. Please provide a valid base58 public key.',
       label: 'Scan Another',
       links: { actions: [] },
@@ -51,14 +51,14 @@ export default async function handler(req: Request): Promise<Response> {
 
   return blinkResponse({
     title: 'Walour Threat Check',
-    icon: 'https://walour.xyz/logo.png',
+    icon: 'https://walour.io/logo.png',
     description,
     label: 'Scan Another',
     links: {
       actions: [
         {
           label: 'View Full Report',
-          href: `https://walour.xyz/stats?address=${address}`,
+          href: `https://walour.io/stats?address=${address}`,
           type: 'external-link',
         },
       ],

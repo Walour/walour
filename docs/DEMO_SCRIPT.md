@@ -1,14 +1,12 @@
 # Walour — Demo Script
-**Target length:** 2–3 minutes  
-**Recording tool:** [Cap](https://cap.so) — free, screen + webcam overlay, exports MP4  
-**Where to post:** Upload MP4 natively to X (10x more reach than YouTube links) + attach to Colosseum submission
+**Target length:** 2 minutes 15 seconds
+**Recording tool:** [Cap](https://cap.so) — free, screen + webcam overlay, exports MP4
+**Where to post:** Upload MP4 natively to X + attach to Colosseum submission
 
 ### Face cam strategy
 - **Scene 1 (hook):** face cam ON — builds trust, feels human
-- **Scenes 2–6 (demo):** face cam OFF — nothing distracts from the product
-- **Scene 7 (close):** face cam ON — ends like a pitch, not a tutorial
-
-Cap lets you toggle webcam on/off mid-recording. Face cam bubble goes bottom-right corner.
+- **Scenes 2–5 (demo):** face cam OFF — nothing distracts from the product
+- **Scene 6 (close):** face cam ON — ends like a pitch, not a tutorial
 
 ---
 
@@ -16,92 +14,96 @@ Cap lets you toggle webcam on/off mid-recording. Face cam bubble goes bottom-rig
 
 Start these in order — have them all running before you hit record:
 
-1. **Worker:** `cd apps/worker && npx tsx server.ts` (port 3000)
-2. **Stats page:** `cd apps/web && npm run dev` (port 3001 or 3000 if worker isn't running)
-3. **Test trigger page:** `npx serve . -p 8080` from the repo root → open `http://localhost:8080/walour/apps/extension/test-trigger.html`
-4. **Extension:** loaded in Chrome from `apps/extension/dist` → chrome://extensions → Load unpacked
-5. **Phantom:** installed and unlocked
+1. **Worker:** `cd apps/worker && npx tsx server.ts` (port 3001)
+2. **Stats page:** `cd apps/web && npm run dev`
+3. **Test trigger page:** open `apps/extension/test-trigger.html` via a local server
+4. **Extension:** loaded in Chrome from `apps/extension/dist`
+5. **Phantom:** installed, unlocked, and connected
 
 ### Verify before recording
-
-Open the test trigger page, click **Connect Phantom**, then click **Sign Transaction** — the Walour overlay should slide in with the URL row showing **RED** (localhost is seeded as a known threat in the corpus). If it shows GREEN, the worker isn't running.
+Open the test trigger page, click **Connect Phantom**, then **Sign Transaction** — the Walour overlay should appear with URL row showing RED. If GREEN, the worker isn't running.
 
 ---
 
-## Scene 1 — Hook (0:00–0:15) · FACE CAM ON
+## Scene 1 — Hook (0:00–0:20) · FACE CAM ON
 
-**Screen:** Stats page at `localhost:3001/stats`  
+**Screen:** Stats page
 **Camera:** Face cam on, bottom-right corner
 
 **Say:**
-> "Every day, Solana users lose millions to wallet drainers and phishing sites — and they only find out after they've already signed. Walour stops it before the signature."
+> "Solana lost $330 million to wallet drainers last year. Every single victim had one thing in common — they signed a transaction they didn't understand. Walour stops that. Not after the fact. Before the signature."
 
-**What to show:** Pause on the stat cards — 5,209 threats tracked, drains blocked, SOL saved.
+**What to show:** Pause on stat cards — threats tracked, drains blocked.
 
 ---
 
-## Scene 2 — The problem (0:15–0:30) · FACE CAM OFF
+## Scene 2 — The intercept (0:20–1:10) · FACE CAM OFF · THE WOW MOMENT
 
-**Screen:** Switch to the test trigger page  
-**Camera:** Toggle face cam off — screen only from here
+**Screen:** Test trigger page
+**Camera:** Toggle off
 
 **Say:**
-> "A user lands on a suspicious site. Their wallet pops up asking to sign a transaction. They have no idea what it does. Most people just sign."
+> "A user lands on a suspicious site. Phantom fires. Watch what happens."
 
-**What to show:** The test trigger page. Click **Connect Phantom** — wallet connects.
+Click **Sign Transaction.**
+
+**Say nothing for 3 seconds.** Let the overlay slide in. Let the judge see it happen.
+
+Then narrate what they're watching:
+
+> "Walour intercepts the transaction before the wallet popup even appears."
+
+Point to URL row:
+
+> "Domain — RED. Known threat, 97% confidence."
+
+Point to token row:
+
+> "Token — flagged. PermanentDelegate extension. That means the contract can move tokens from your wallet without your approval, ever again."
+
+Point to the streaming text row — let it run:
+
+> "And right now, Claude is reading the raw Solana instruction and explaining it in plain English. In real time. Before you decide anything."
+
+**Pause. Let the stream run 4 full seconds. This is the moment.**
 
 ---
 
-## Scene 3 — Walour intercepts (0:30–1:10) · FACE CAM OFF ← WOW MOMENT
+## Scene 3 — One click (1:10–1:25) · FACE CAM OFF
 
-**Screen:** Click **Sign Transaction** on the test trigger page
-
-**Say:**
-> "The moment the wallet fires — Walour intercepts it."
-
-**What to show:**
-- Overlay slides in (dark card)
-- **URL row** lights up RED — known threat, 97% confidence
-- **Token row** shows risk score
-- **Transaction row** — Claude starts streaming plain-English text in real time
-
-**Say (while Claude streams):**
-> "Claude Sonnet reads the raw Solana instruction and explains it in plain English — in real time, before you decide anything."
-
-Let the stream run 3–4 seconds. This is the moment that sells it.
-
----
-
-## Scene 4 — Don't sign (1:10–1:25) · FACE CAM OFF
-
-**Screen:** Click the **Don't sign** button
+**Screen:** Still on the overlay
 
 **Say:**
 > "One click. Transaction blocked. The drain never happens."
 
-**What to show:** Overlay closes, wallet popup disappears.
+Click **Don't sign.**
+
+**What to show:** Overlay closes cleanly. Wallet popup gone.
 
 ---
 
-## Scene 5 — Stats update (1:25–1:45) · FACE CAM OFF
+## Scene 4 — The oracle (1:25–1:50) · FACE CAM OFF
 
-**Screen:** Switch to `localhost:3001/stats`
+**Screen:** Switch to stats page or VS Code showing Anchor program
 
 **Say:**
-> "Every blocked drain is recorded — threats tracked, SOL saved, all public."
+> "Every blocked drain gets written to an on-chain registry. A Solana oracle — permissionless, sybil-resistant, queryable by anyone."
 
-**What to show:** Stat cards with real numbers. Top 10 threats table with real addresses.
+Show the program ID or Solana Explorer devnet link briefly:
+
+> "Any wallet, any dApp, can read the same threat intelligence. Not a centralized blocklist. A shared oracle any developer can build on."
 
 ---
 
-## Scene 6 — SDK (1:45–2:05) · FACE CAM OFF
+## Scene 5 — SDK (1:50–2:05) · FACE CAM OFF
 
-**Screen:** VS Code or GitHub README open on the code snippet
+**Screen:** VS Code with the SDK snippet
 
 **Say:**
-> "And because it's a composable SDK, any dApp can plug in the same threat intelligence in 10 lines of TypeScript. No API key, no single point of failure."
+> "Ten lines of TypeScript. That's all it takes to plug any dApp into the same threat intelligence that just blocked that drain."
 
-**What to show:**
+Show this on screen:
+
 ```ts
 import { checkDomain, checkTokenRisk, decodeTransaction } from '@walour/sdk'
 
@@ -115,37 +117,38 @@ for await (const chunk of decodeTransaction(tx)) {
 
 ---
 
-## Scene 7 — Close (2:05–2:20) · FACE CAM ON
+## Scene 6 — Close (2:05–2:15) · FACE CAM ON
 
-**Screen:** GitHub repo — `github.com/Walour/Walour`  
-**Camera:** Toggle face cam back on
+**Screen:** GitHub repo
+**Camera:** Face cam back on
 
 **Say:**
-> "Walour. A security oracle for Solana — not a blocklist, not a plugin. Shared infrastructure any wallet or dApp can use. Built for Colosseum Frontier."
+> "Walour. A security oracle for Solana. Not a plugin. Not a blocklist. Shared infrastructure any wallet or dApp can use — starting now."
 
 ---
 
-## X post copy
+## Recording tips
+
+- Record at 1080p minimum
+- Do one full rehearsal run before the real take — muscle memory matters on the overlay scene
+- If Claude stream is slow, that is fine — it shows it's real, not faked
+- If anything breaks mid-scene, cut and redo just that scene — Cap lets you trim
+- Total target: under 2:20. Colosseum reviewers watch dozens of these; tight wins
+- Do not mention Supabase, Redis, or Helius by name — say "the oracle" or "the corpus"
+- Do not say "Chrome extension" in the close — say "security oracle"
+
+---
+
+## X post copy (post the video natively, not a YouTube link)
 
 ```
-We built a Solana security oracle that intercepts wallet drainers before you sign.
+Built a Solana security oracle that intercepts wallet drainers before you sign.
 
-→ Chrome extension hooks Phantom, Solflare & Backpack
-→ Claude Sonnet streams a plain-English tx explanation in real time
-→ 5,200+ known threats in the corpus
-→ Any dApp can read the threat registry in 10 lines of TypeScript
+Streaming Claude explains the transaction in plain English — in real time.
+On-chain threat registry any dApp can query in 10 lines of TypeScript.
+5,200+ threats tracked. Every blocked drain is public.
 
 github.com/Walour/Walour
 
 #Solana #Colosseum
 ```
-
----
-
-## Tips for your mate
-
-- Record at 1080p, 30fps minimum
-- If the Claude stream is slow, that's fine — shows it's real, not faked
-- Don't mention Supabase, Redis, or Helius by name — just say "the corpus" or "the oracle"
-- If anything breaks mid-scene, stop and redo just that scene — Cap lets you trim
-- Keep total under 2:30 — Colosseum reviewers watch dozens of these

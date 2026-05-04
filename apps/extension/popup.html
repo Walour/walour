@@ -70,6 +70,14 @@
         <input class="ext-lookup-input" id="ext-lookup-input" type="text" placeholder="Lookup domain or address..." aria-label="Lookup">
         <button class="ext-lookup-btn" id="ext-lookup-btn" type="submit">Check</button>
       </form>
+      <div id="lookup-result" style="display:none; margin:0 14px 8px;">
+        <div id="lookup-result-band" class="ext-verdict" style="padding:12px 14px;">
+          <div>
+            <div id="lookup-result-label" class="ext-verdict-label" style="font-size:15px;"></div>
+            <div id="lookup-result-reason" class="ext-verdict-sub"></div>
+          </div>
+        </div>
+      </div>
       <div class="ext-toggles" role="group" aria-label="Active checks">
         <button class="ext-toggle on" id="toggle-url" type="button" data-key="url">
           <span class="ext-toggle-dot"></span>
@@ -85,7 +93,7 @@
         </button>
       </div>
       <div class="ext-actions">
-        <a class="ext-btn accent" id="stats-link" href="https://walour.xyz/stats" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;justify-content:center;text-decoration:none;">View stats</a>
+        <a class="ext-btn muted" id="stats-link" href="https://walour.io/stats" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;justify-content:center;text-decoration:none;font-size:12px;height:32px;">View stats</a>
       </div>
     </section>
 

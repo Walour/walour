@@ -4,6 +4,7 @@ import Hero from '@/components/landing/Hero'
 import StatsStrip from '@/components/landing/StatsStrip'
 import ThreatScene from '@/components/landing/ThreatScene'
 import HowItWorks from '@/components/landing/HowItWorks'
+import IntelSources from '@/components/landing/IntelSources'
 import FeatureTiles from '@/components/landing/FeatureTiles'
 import SdkBlock from '@/components/landing/SdkBlock'
 import CtaBanner from '@/components/landing/CtaBanner'
@@ -21,6 +22,7 @@ export default async function HomePage() {
       />
       <ThreatScene />
       <HowItWorks />
+      <IntelSources />
       <FeatureTiles />
       <SdkBlock />
       <CtaBanner />

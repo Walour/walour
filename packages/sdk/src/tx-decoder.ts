@@ -169,7 +169,7 @@ function buildCacheKey(tx: VersionedTransaction): string {
   return 'tx:decode:' + createHash('sha256').update(JSON.stringify(instructions)).digest('hex').slice(0, 16)
 }
 
-const SYSTEM_PROMPT = `You are a Solana transaction security auditor. Analyze the transaction instructions and explain in 2-3 plain English sentences what this transaction will do to the user's wallet. Focus on what assets move and where they go. Flag any risks clearly and directly. Use no jargon — write as if explaining to someone who doesn't know what a program ID is. Never use headers or bullet points. Respond with only the explanation.`
+const SYSTEM_PROMPT = `You are a wallet security guard writing a one-sentence alert for a non-technical user. State clearly whether this transaction is safe or risky, then say what it does to their wallet. Examples: "Safe: this sends 0.5 SOL to an address you likely control." or "Risk: this transfers your tokens to an unrecognized program that could drain your wallet." Never use markdown, asterisks, bullet points, headers, or technical terms like program ID, discriminator, instruction, or account index. If the transaction is unrecognizable, say exactly: "Unknown transaction type. Do not sign unless you initiated this." One sentence only. No line breaks.`
 
 export async function* decodeTransaction(
   tx: VersionedTransaction
@@ -178,7 +178,7 @@ export async function* decodeTransaction(
   const { accounts, failed: altFailed } = await withRpcFallback(conn => resolveALTs(tx, conn))
     .catch(() => ({ accounts: [...tx.message.staticAccountKeys], failed: true }))
   if (altFailed) {
-    yield 'Warning: address lookup table resolution failed — this transaction is higher-risk than normal. '
+    yield 'Warning: could not fully resolve this transaction. Treat it as higher risk than normal. '
   }
 
   // 2. Check cache
@@ -199,11 +199,26 @@ export async function* decodeTransaction(
   // 4. Red-flag detection (sync, corpus lookup)
   const allAccounts = instructions.flatMap(ix => ix.accounts)
   const corpusHits = new Set<string>()
+  const uniqueAccounts = [...new Set(allAccounts)]
+  let active = 0
+  const queue: Array<() => void> = []
+  const CONCURRENCY = 5
   await Promise.allSettled(
-    [...new Set(allAccounts)].map(async addr => {
-      const hit = await lookupAddress(addr)
-      if (hit) corpusHits.add(addr)
-    })
+    uniqueAccounts.map(addr => new Promise<void>(resolve => {
+      const run = async () => {
+        active++
+        try {
+          const hit = await lookupAddress(addr)
+          if (hit) corpusHits.add(addr)
+        } finally {
+          active--
+          const next = queue.shift()
+          if (next) next()
+          resolve()
+        }
+      }
+      if (active < CONCURRENCY) { run() } else { queue.push(run) }
+    }))
   )
   const redFlags = detectRedFlags(instructions, corpusHits)
 
@@ -232,13 +247,13 @@ export async function* decodeTransaction(
       ? null
       : client.messages.stream({
           model: 'claude-haiku-4-5-20251001',
-          max_tokens: 300,
+          max_tokens: 80,
           system: SYSTEM_PROMPT,
           messages: [{ role: 'user', content: userContent }],
         })
 
     if (!stream) {
-      yield 'Unable to decode this transaction. Do not sign until you understand what it does.'
+      yield '[AI offline] Unable to decode this transaction. Do not sign until you understand what it does.'
       return
     }
 
@@ -268,7 +283,7 @@ export async function* decodeTransaction(
     if (!useFallback) recordFailure('claude')
     const isStall = err instanceof Error && err.name === 'APIUserAbortError'
     yield isStall
-      ? ' [Decode stalled — verify this transaction manually before signing.]'
+      ? ' [Analysis timed out. Verify this transaction manually before signing.]'
       : 'Unable to decode this transaction. Do not sign until you understand what it does.'
   }
 }

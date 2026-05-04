@@ -13,9 +13,19 @@ function getCache(): Redis | null {
 }
 
 export async function cacheGet<T>(key: string): Promise<T | null> {
-  return getCache()?.get<T>(key) ?? null
+  const cache = getCache()
+  if (!cache) {
+    console.warn('[walour/cache] Redis unavailable — skipping cache read for:', key)
+    return null
+  }
+  return cache.get<T>(key)
 }
 
 export async function cacheSet<T>(key: string, value: T, ttlSeconds: number): Promise<void> {
-  await getCache()?.set(key, value, { ex: ttlSeconds })
+  const cache = getCache()
+  if (!cache) {
+    console.warn('[walour/cache] Redis unavailable — skipping cache write for:', key)
+    return
+  }
+  await cache.set(key, value, { ex: ttlSeconds })
 }

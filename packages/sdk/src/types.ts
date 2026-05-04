@@ -17,7 +17,7 @@ export interface DomainRiskResult {
 export interface ThreatReport {
   address: string
   type: 'drainer' | 'rug' | 'phishing_domain' | 'malicious_token'
-  source: 'chainabuse' | 'scam_sniffer' | 'community' | 'twitter'
+  source: 'on-chain' | 'scam_sniffer' | 'community' | 'twitter' | 'goplus'
   evidence_url?: string
   confidence: number
   first_seen: string

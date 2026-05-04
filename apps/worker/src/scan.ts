@@ -1,7 +1,6 @@
 import { Connection, VersionedTransaction, PublicKey } from '@solana/web3.js'
 import { checkDomain, checkTokenRisk, lookupAddress } from '@walour/sdk'
-
-export const config = { runtime: 'edge' }
+import { adaptForVercel } from './lib/adapt'
 
 // Known program IDs to exclude from mint detection
 const KNOWN_PROGRAMS = new Set([
@@ -83,7 +82,7 @@ function findLikelyMint(accounts: PublicKey[]): string | null {
   return null
 }
 
-export default async function handler(req: Request): Promise<Response> {
+async function handler(req: Request): Promise<Response> {
   const ALLOWED_ORIGIN =
     process.env.NODE_ENV === 'development'
       ? '*'
@@ -171,3 +170,5 @@ export default async function handler(req: Request): Promise<Response> {
     }
   )
 }
+
+export default adaptForVercel(handler)

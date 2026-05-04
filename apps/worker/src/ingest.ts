@@ -376,10 +376,12 @@ async function runSource(
 }
 
 // ---------------------------------------------------------------------------
-// Vercel Edge Function handler
+// Vercel Node.js Function handler
 // ---------------------------------------------------------------------------
 
-export default async function handler(_req: Request): Promise<Response> {
+import { adaptForVercel } from './lib/adapt'
+
+async function handler(_req: Request): Promise<Response> {
   const start = Date.now()
 
   const supabase = createClient<Database>(
@@ -434,3 +436,5 @@ export default async function handler(_req: Request): Promise<Response> {
 
   return Response.json(result)
 }
+
+export default adaptForVercel(handler)

@@ -1,7 +1,6 @@
 import { VersionedTransaction } from '@solana/web3.js'
 import { decodeTransaction } from '@walour/sdk'
-
-export const config = { runtime: 'edge' }
+import { adaptForVercel } from './lib/adapt'
 
 const ALLOWED_ORIGIN =
   process.env.NODE_ENV === 'development' ? '*' : 'chrome-extension://*'
@@ -12,7 +11,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'Content-Type',
 }
 
-export default async function handler(req: Request): Promise<Response> {
+async function handler(req: Request): Promise<Response> {
   if (req.method === 'OPTIONS') {
     return new Response(null, { status: 200, headers: corsHeaders })
   }
@@ -84,3 +83,5 @@ export default async function handler(req: Request): Promise<Response> {
     },
   })
 }
+
+export default adaptForVercel(handler)

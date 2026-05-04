@@ -3,10 +3,11 @@
 // the threat level of a Solana address.
 
 import { lookupAddress, checkTokenRisk } from '@walour/sdk'
+import { adaptForVercel } from './lib/adapt'
 
 const BASE58_RE = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/
 
-export default async function handler(req: Request): Promise<Response> {
+async function handler(req: Request): Promise<Response> {
   if (req.method !== 'GET') {
     return new Response('Method Not Allowed', { status: 405 })
   }
@@ -95,3 +96,5 @@ function blinkResponse(payload: BlinkPayload): Response {
     },
   })
 }
+
+export default adaptForVercel(handler)

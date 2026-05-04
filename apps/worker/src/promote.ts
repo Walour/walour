@@ -13,6 +13,7 @@ import {
   SystemProgram,
 } from '@solana/web3.js'
 import * as anchor from '@coral-xyz/anchor'
+import { adaptForVercel } from './lib/adapt'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -98,7 +99,7 @@ const PROMOTE_IDL = {
 // Handler
 // ---------------------------------------------------------------------------
 
-export default async function handler(
+async function handler(
   req: Request
 ): Promise<Response> {
   if (req.method !== 'GET') {
@@ -235,3 +236,5 @@ export default async function handler(
     }
   )
 }
+
+export default adaptForVercel(handler)

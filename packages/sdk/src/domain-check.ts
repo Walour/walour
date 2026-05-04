@@ -29,7 +29,8 @@ async function queryCorpus(address: string): Promise<ThreatReport | null> {
 async function goplusDomainCheck(hostname: string): Promise<boolean> {
   try {
     const res = await fetch(
-      `https://api.gopluslabs.io/api/v1/phishing_site?url=${encodeURIComponent(hostname)}`
+      `https://api.gopluslabs.io/api/v1/phishing_site?url=${encodeURIComponent(hostname)}`,
+      { signal: AbortSignal.timeout(5_000) }
     )
     const data = await res.json()
     return data?.result?.is_phishing_site === '1'
@@ -41,7 +42,7 @@ async function goplusDomainCheck(hostname: string): Promise<boolean> {
 export async function lookupAddress(pubkey: string): Promise<ThreatReport | null> {
   const cacheKey = `address:threat:${pubkey}`
   const cached = await cacheGet<ThreatReport | null>(cacheKey)
-  if (cached !== undefined) return cached
+  if (cached != null) return cached
 
   // 1. Supabase corpus lookup
   const report = await queryCorpus(pubkey)

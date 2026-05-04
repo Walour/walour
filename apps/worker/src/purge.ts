@@ -1,7 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
+import { adaptForVercel } from './lib/adapt'
 
-// Vercel Edge Function — runs daily at 02:00 UTC via vercel.json cron
-export default async function handler(_req: Request): Promise<Response> {
+async function handler(_req: Request): Promise<Response> {
   const supabase = createClient(
     process.env.SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_KEY!
@@ -31,3 +31,5 @@ export default async function handler(_req: Request): Promise<Response> {
 
   return Response.json({ ok: true, purged, duration_ms })
 }
+
+export default adaptForVercel(handler)

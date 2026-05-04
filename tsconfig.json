@@ -5,8 +5,9 @@
     "strict": true,
     "esModuleInterop": true,
     "resolveJsonModule": true,
-    "outDir": "dist",
-    "types": ["mocha", "node"]
+    "noEmit": true,
+    "types": ["mocha", "node"],
+    "rootDir": "."
   },
-  "include": ["tests/**/*.ts"]
+  "include": ["tests/**/*.ts", "src/**/*.ts"]
 }

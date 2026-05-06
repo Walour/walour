@@ -56,6 +56,91 @@ async function getTokenAge(
   }
 }
 
+interface JupiterSecData {
+  organicScore: number | null
+  organicScoreLabel: 'high' | 'medium' | 'low' | null
+  isVerified: boolean | null
+  // isSus is only present in the API response when true — absence means unchecked, not safe
+  isSus: true | null
+  devBalancePct: number | null
+  devMints: number | null
+  liquidityUsd: number | null
+  hasPrice: boolean | null
+  tags: string[]
+}
+
+async function getJupiterSecurity(mint: string): Promise<JupiterSecData | null> {
+  const apiKey = process.env.JUPITER_API_KEY
+  if (!apiKey) return null
+
+  const headers = { 'x-api-key': apiKey }
+  const sig = { signal: AbortSignal.timeout(2_500) }
+
+  try {
+    const [searchRes, priceRes] = await Promise.allSettled([
+      fetch(`https://api.jup.ag/tokens/v2/search?query=${encodeURIComponent(mint)}`, { headers, ...sig }),
+      fetch(`https://api.jup.ag/price/v3?ids=${encodeURIComponent(mint)}`, { headers, ...sig }),
+    ])
+
+    let organicScore: number | null = null
+    let organicScoreLabel: JupiterSecData['organicScoreLabel'] = null
+    let isVerified: boolean | null = null
+    let isSus: true | null = null
+    let devBalancePct: number | null = null
+    let devMints: number | null = null
+    let tags: string[] = []
+
+    if (searchRes.status === 'fulfilled' && searchRes.value.ok) {
+      const arr = await searchRes.value.json() as Array<{
+        id: string
+        organicScore?: number
+        organicScoreLabel?: 'high' | 'medium' | 'low'
+        isVerified?: boolean
+        audit?: {
+          isSus?: true        // only present when flagged; absence means unchecked
+          mintAuthorityDisabled?: boolean
+          freezeAuthorityDisabled?: boolean
+          topHoldersPercentage?: number
+          devBalancePercentage?: number
+          devMints?: number
+        }
+        tags?: string[]
+      }>
+      const hit = Array.isArray(arr) ? arr.find(t => t.id === mint) : null
+      if (hit) {
+        organicScore = hit.organicScore ?? null
+        organicScoreLabel = hit.organicScoreLabel ?? null
+        isVerified = hit.isVerified ?? null
+        isSus = hit.audit?.isSus === true ? true : null
+        devBalancePct = hit.audit?.devBalancePercentage ?? null
+        devMints = hit.audit?.devMints ?? null
+        tags = hit.tags ?? []
+      }
+    }
+
+    // Tokens absent from the Price v3 response have no reliable pricing data
+    let hasPrice: boolean | null = null
+    let liquidityUsd: number | null = null
+    if (priceRes.status === 'fulfilled' && priceRes.value.ok) {
+      const data = await priceRes.value.json() as Record<string, { usdPrice?: number; liquidity?: number } | undefined>
+      const entry = data?.[mint]
+      hasPrice = entry !== undefined && entry.usdPrice != null
+      liquidityUsd = entry?.liquidity ?? null
+    }
+
+    if (
+      organicScore === null && organicScoreLabel === null && isVerified === null &&
+      isSus === null && devBalancePct === null && hasPrice === null
+    ) {
+      return null
+    }
+
+    return { organicScore, organicScoreLabel, isVerified, isSus, devBalancePct, devMints, liquidityUsd, hasPrice, tags }
+  } catch {
+    return null
+  }
+}
+
 async function getGoPlusFlag(mint: string): Promise<boolean> {
   try {
     const res = await fetch(
@@ -74,7 +159,7 @@ async function getGoPlusFlag(mint: string): Promise<boolean> {
 async function runChecks(mint: string, connection: Connection): Promise<TokenRiskResult> {
   const mintPubkey = new PublicKey(mint)
 
-  const [mintInfo, largestAccounts, lpLocked, tokenAgeDays, goplusFlag, corpusHit] =
+  const [mintInfo, largestAccounts, lpLocked, tokenAgeDays, goplusFlag, corpusHit, jupiterSec] =
     await Promise.allSettled([
       connection.getParsedAccountInfo(mintPubkey),
       connection.getTokenLargestAccounts(mintPubkey),
@@ -82,6 +167,7 @@ async function runChecks(mint: string, connection: Connection): Promise<TokenRis
       getTokenAge(mintPubkey, connection),
       getGoPlusFlag(mint),
       lookupAddress(mint),
+      getJupiterSecurity(mint),
     ])
 
   const checks: TokenRiskResult['checks'] = {}
@@ -197,7 +283,65 @@ async function runChecks(mint: string, connection: Connection): Promise<TokenRis
     }
   }
 
-  // Check 8: Walour corpus hit
+  // Check 8: Jupiter intelligence — organic score, audit flag, dev concentration, liquidity
+  if (jupiterSec.status === 'fulfilled' && jupiterSec.value !== null) {
+    const j = jupiterSec.value
+    const ageDays = tokenAgeDays.status === 'fulfilled' ? tokenAgeDays.value : null
+    const isEstablished = ageDays !== null && ageDays >= 7
+
+    // Prefer the categorical label (confirmed enum: high/medium/low) over raw numeric threshold
+    if (j.organicScoreLabel !== null) {
+      if (j.organicScoreLabel === 'low') {
+        const detail = j.organicScore !== null
+          ? `Jupiter organic score ${j.organicScore.toFixed(0)}/100 — low organic trading activity`
+          : 'Low organic trading activity (Jupiter)'
+        checks.jupiterOrganicScore = { passed: false, weight: 15, detail }
+        score += 15
+      } else if (j.organicScoreLabel === 'high') {
+        const detail = j.organicScore !== null
+          ? `Jupiter organic score ${j.organicScore.toFixed(0)}/100 — healthy organic activity`
+          : 'High organic trading activity (Jupiter)'
+        checks.jupiterOrganicScore = { passed: true, weight: 15, detail }
+      }
+      // medium: neutral, no check entry
+    } else if (j.organicScore !== null) {
+      // fallback to numeric if label absent
+      if (j.organicScore < 30) {
+        checks.jupiterOrganicScore = { passed: false, weight: 15, detail: `Jupiter organic score ${j.organicScore.toFixed(0)}/100 — low organic trading activity` }
+        score += 15
+      } else if (j.organicScore >= 70) {
+        checks.jupiterOrganicScore = { passed: true, weight: 15, detail: `Jupiter organic score ${j.organicScore.toFixed(0)}/100 — healthy organic activity` }
+      }
+    }
+
+    // isSus is only set by Jupiter when explicitly flagged — absence means unchecked, not safe
+    if (j.isSus === true) {
+      checks.jupiterSus = { passed: false, weight: 20, detail: 'Flagged suspicious by Jupiter audit' }
+      score += 20
+    }
+
+    // Only penalise unverified if another flag is already present — avoids punishing every new legit token
+    if (j.isVerified === false && score > 0) {
+      checks.jupiterUnverified = { passed: false, weight: 5, detail: 'Token is not verified on Jupiter' }
+      score += 5
+    } else if (j.isVerified === true) {
+      checks.jupiterUnverified = { passed: true, weight: 5, detail: 'Verified on Jupiter' }
+    }
+
+    if (j.devBalancePct !== null && j.devBalancePct > 20) {
+      const mintNote = j.devMints !== null && j.devMints > 1 ? `, ${j.devMints} mint events` : ''
+      checks.jupiterDevBalance = { passed: false, weight: 10, detail: `Deployer holds ${j.devBalancePct.toFixed(1)}% of supply${mintNote} (Jupiter)` }
+      score += 10
+    }
+
+    // Token absent from Price v3 response = no reliable pricing. Only flag established tokens.
+    if (j.hasPrice === false && isEstablished) {
+      checks.jupiterNoPrice = { passed: false, weight: 10, detail: 'No Jupiter price — absent from price feed, illiquid or no routable pool' }
+      score += 10
+    }
+  }
+
+  // Check 9: Walour corpus hit
   if (corpusHit.status === 'fulfilled') {
     if (corpusHit.value) {
       checks.corpusHit = { passed: false, weight: 30, detail: `In Walour threat corpus (${corpusHit.value.type}, confidence ${(corpusHit.value.confidence * 100).toFixed(0)}%)` }
@@ -212,5 +356,21 @@ async function runChecks(mint: string, connection: Connection): Promise<TokenRis
     .filter(c => !c.passed)
     .map(c => c.detail)
 
-  return { level, score, reasons, checks }
+  const intel: TokenRiskResult['intel'] = {}
+  if (jupiterSec.status === 'fulfilled' && jupiterSec.value !== null) {
+    const j = jupiterSec.value
+    intel.jupiter = {
+      organicScore: j.organicScore,
+      isVerified: j.isVerified,
+      isSus: j.isSus,
+      devBalancePct: j.devBalancePct,
+      devMints: j.devMints,
+      liquidityUsd: j.liquidityUsd,
+      hasPrice: j.hasPrice,
+      tags: j.tags,
+      fetchedAt: Date.now(),
+    }
+  }
+
+  return { level, score, reasons, checks, ...(Object.keys(intel).length ? { intel } : {}) }
 }

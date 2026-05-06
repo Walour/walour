@@ -231,7 +231,7 @@ interface TokenRiskResult {
   }>
 }`}</CodeBlock>
             <h3>Checks performed</h3>
-            <table className="docs-table">
+            <div className="docs-table-wrap"><table className="docs-table">
               <thead>
                 <tr><th>Check</th><th>Weight</th><th>Flags when</th></tr>
               </thead>
@@ -245,7 +245,7 @@ interface TokenRiskResult {
                 <tr><td>GoPlus honeypot</td><td>20</td><td>GoPlus flags as honeypot or blacklisted</td></tr>
                 <tr><td>Walour corpus hit</td><td>30</td><td>Address in threat registry</td></tr>
               </tbody>
-            </table>
+            </table></div>
             <div className="docs-note">
               Cache TTL: 60 seconds. Falls back to AMBER with reason "Risk check unavailable" if the circuit breaker opens.
             </div>
@@ -341,7 +341,7 @@ interface PrivateReportCloakResult {
           <section id="caching" data-section>
             <h2>Caching</h2>
             <p>Every SDK function is cache-first. On a miss the SDK fetches all sources in parallel, writes to Upstash Redis, then returns. Subsequent calls within the TTL window skip all network round-trips.</p>
-            <table className="docs-table">
+            <div className="docs-table-wrap"><table className="docs-table">
               <thead>
                 <tr><th>Function</th><th>TTL</th><th>Warm latency</th></tr>
               </thead>
@@ -351,7 +351,7 @@ interface PrivateReportCloakResult {
                 <tr><td>checkDomain()</td><td>3600s</td><td>under 100ms</td></tr>
                 <tr><td>decodeTransaction()</td><td>86400s</td><td>under 100ms</td></tr>
               </tbody>
-            </table>
+            </table></div>
             <h3>Bypass cache</h3>
             <p>Pass <code>skipCache: true</code> in the options argument to any function to force a fresh fetch.</p>
             <h3>Cache invalidation</h3>
@@ -362,7 +362,7 @@ interface PrivateReportCloakResult {
             <h2>Circuit Breakers</h2>
             <p>Every external provider is wrapped in a circuit breaker. If a provider fails 3 times within 60 seconds, its circuit opens and calls are routed to the next provider in the fallback chain automatically.</p>
             <h3>RPC fallback chain</h3>
-            <table className="docs-table">
+            <div className="docs-table-wrap"><table className="docs-table">
               <thead>
                 <tr><th>Priority</th><th>Provider</th><th>Notes</th></tr>
               </thead>
@@ -371,7 +371,7 @@ interface PrivateReportCloakResult {
                 <tr><td>2</td><td>Triton</td><td>High-availability fallback</td></tr>
                 <tr><td>3</td><td>Solana public RPC</td><td>Last resort, rate-limited</td></tr>
               </tbody>
-            </table>
+            </table></div>
             <h3>Inspect circuit state</h3>
             <CodeBlock lang="typescript">{`import { getRpcEndpoints } from '@walour/sdk'
 

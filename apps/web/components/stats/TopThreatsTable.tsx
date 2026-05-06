@@ -53,6 +53,7 @@ export default function TopThreatsTable({ threats }: TopThreatsTableProps) {
           No threats indexed yet.
         </div>
       ) : (
+        <div className="table-card-scroll">
         <table className="threats" style={{ width: '100%' }}>
           <thead>
             <tr>
@@ -126,6 +127,7 @@ export default function TopThreatsTable({ threats }: TopThreatsTableProps) {
             })}
           </tbody>
         </table>
+        </div>
       )}
 
       {/* Footer note */}

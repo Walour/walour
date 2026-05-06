@@ -1,9 +1,24 @@
-# Walour — Solana Security Oracle
+# Walour: Solana Security Oracle
 
 > Real-time scam protection for Solana. Intercepts wallet-draining transactions before you sign, explains them in plain English, and publishes threat intelligence to an on-chain oracle any dApp can query.
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Solana](https://img.shields.io/badge/Solana-devnet-9945FF)](https://solana.com)
+[![Colosseum Frontier 2026](https://img.shields.io/badge/Colosseum-Frontier%202026-FF6B35)](https://arena.colosseum.org)
+
+---
+
+## Colosseum Frontier 2026
+
+Walour was built for and submitted to [Colosseum Frontier 2026](https://arena.colosseum.org). Applying to the following tracks:
+
+**Demo video:** _link added on submission day_
+
+| Track | Sponsor | Fit |
+|---|---|---|
+| Jupiter Developer Platform | Jupiter | Jupiter Tokens v2 + Price v3 integrated as a dedicated security intelligence layer |
+| Security Audit Credits | Adevar Labs | Security oracle product — threat model, PDA collision analysis, prompt injection surface |
+| RPC Infrastructure Credits | RPC Fast | RPC Fast is the third tier in the SDK fallback chain (Helius -> Triton -> RPC Fast -> public) |
 
 ---
 
@@ -27,15 +42,15 @@ dApp triggers signTransaction()
          ▼
   [Walour content script intercepts]
          │
-         ├─ checkDomain()     → Supabase corpus + GoPlus + homoglyph + RDAP age check
-         ├─ checkTokenRisk()  → mint authority, freeze, Token-2022 honeypot flags
-         ├─ /api/simulate     → exact SOL + token balance deltas before signing
+         ├─ checkDomain()      → corpus + GoPlus + homoglyph + RDAP age check
+         ├─ checkTokenRisk()   → mint authority, freeze, Token-2022, GoPlus, Jupiter intel
+         ├─ /api/simulate      → exact SOL + token balance deltas before signing
          └─ decodeTransaction() → Claude Haiku streams plain-English explanation
                  │
                  ▼
          Overlay appears in < 400ms
          GREEN / AMBER / RED verdict
-         "Don't sign" → drain_blocked event → oracle updated
+         "Don't sign" → drain_blocked telemetry emitted → Supabase
 ```
 
 All threat data is published to an on-chain Solana oracle. Any dApp can query it via the SDK:
@@ -67,7 +82,30 @@ const risk = await checkDomain('suspicious-airdrop.xyz')
 | Multi-instruction drain (> 2 assets) | Post-loop aggregate + DEX suppression | ✅ |
 | Address Lookup Table drainers | ALT resolution before decode | ✅ |
 | Balance delta simulation | `/api/simulate` pre-sign preview | ✅ |
-| AI plain-English decode | Claude Haiku streaming | ✅ |
+| Low organic score / wash-traded token | Jupiter `organicScoreLabel` | ✅ |
+| Suspicious audit flag + dev concentration | Jupiter `audit.isSus` + `devBalancePercentage` | ✅ |
+
+---
+
+## Jupiter integration
+
+Walour uses **Jupiter Tokens v2** and **Price v3** as a dedicated security intelligence layer — the only external API in our stack built around token quality signals rather than threat lists.
+
+Both API calls run in parallel with existing checks inside a `Promise.allSettled`. A 2.5s timeout is set on each. If Jupiter is unreachable, the rest of the engine continues unaffected.
+
+**Signals consumed:**
+
+| Field | Source | How it is used |
+|---|---|---|
+| `organicScoreLabel` | Tokens v2 | Primary categorical signal — `low` = RED flag (weight 15), `high` = positive pass |
+| `audit.isSus` | Tokens v2 | Only present when flagged — `true` = RED flag (weight 20); absence is not treated as safe |
+| `isVerified` | Tokens v2 | `false` adds weight when another flag is already present (conditional, weight 5) |
+| `devBalancePercentage` | Tokens v2 | > 20% concentration = AMBER flag (weight 10) |
+| Price presence | Price v3 | Token absent from response AND older than 7 days = AMBER — no liquidity signal |
+
+Maximum Jupiter contribution: 60/100 points. Walour's RED threshold is 60 — Jupiter signals alone can push a suspicious token to RED.
+
+**DX report:** [`docs/JUPITER_DX_REPORT.md`](docs/JUPITER_DX_REPORT.md)
 
 ---
 
@@ -80,18 +118,21 @@ apps/
                    /api/decode    → Claude streaming decoder
                    /api/simulate  → pre-sign balance delta simulation
   extension/     — Chrome extension (Manifest V3, TypeScript + Vite)
-  web/           — Stats dashboard (Next.js)
+  web/           — Marketing site + stats dashboard (Next.js)
 packages/
   sdk/           — @walour/sdk — checkDomain, checkTokenRisk, decodeTransaction
 programs/
   walour_oracle/ — Anchor program (on-chain threat registry)
+docs/
+  architecture.md          — Full system architecture
+  JUPITER_DX_REPORT.md     — Jupiter Developer Platform integration report
 ```
 
 ---
 
 ## On-chain oracle
 
-Program ID: `42xCNeFF1HhTDrLfvJu8ieMxuSfEHQDisK8Fe1hJ4QHL` · [View on Solana Explorer →](https://explorer.solana.com/address/42xCNeFF1HhTDrLfvJu8ieMxuSfEHQDisK8Fe1hJ4QHL?cluster=devnet)
+Program ID: `42xCNeFF1HhTDrLfvJu8ieMxuSfEHQDisK8Fe1hJ4QHL` · [View on Solana Explorer](https://explorer.solana.com/address/42xCNeFF1HhTDrLfvJu8ieMxuSfEHQDisK8Fe1hJ4QHL?cluster=devnet)
 
 The oracle is the durable shared layer. Community reports flow in permissionlessly. Confidence accumulates from unique corroborations. An authority can override. Everything is anchored to a PDA — no centralised database required to verify a threat.
 
@@ -144,7 +185,9 @@ SUPABASE_SERVICE_KEY=       # service_role key (worker needs write access)
 UPSTASH_REDIS_REST_URL=     # Upstash Redis REST URL
 UPSTASH_REDIS_REST_TOKEN=   # Upstash Redis REST token
 EXTENSION_ID=               # Your Chrome extension ID (chrome://extensions)
-JUPITER_API_KEY=            # Optional — token symbols in overlay
+JUPITER_API_KEY=            # Jupiter API key — powers organic score + audit.isSus checks
+                            # Free tier (60 RPM) at portal.jup.ag
+                            # If absent, Jupiter checks are silently skipped
 ```
 
 </details>
@@ -159,15 +202,15 @@ npx tsx server.ts
 
 Smoke test:
 ```bash
-curl "http://localhost:3001/api/scan?hostname=wallet-solana-airdrop.xyz"
-# { "level": "RED", "reason": "Known phishing domain", "confidence": 0.9 }
+curl "http://localhost:3001/api/scan?hostname=phantom-wallet.xyz"
+# { "domain": { "level": "RED", "reason": "Hostname contains \"phantom\" but is not a canonical phantom domain, and uses high-risk TLD .xyz.", "confidence": 0.95, "source": "walour-heuristic" }, "token": null }
 ```
 
 ### 4. Load the extension
 
 ```bash
 cp apps/extension/.env.example apps/extension/.env
-# Fill in VITE_API_BASE (default: http://localhost:3001) and Supabase keys
+# Set VITE_API_BASE (default: http://localhost:3001)
 cd apps/extension && npm run build
 ```
 
@@ -193,33 +236,22 @@ npm install @walour/sdk
 ```ts
 import { checkDomain, checkTokenRisk, decodeTransaction } from '@walour/sdk'
 
-// Domain check — corpus + GoPlus + homoglyph detection
+// Domain check — corpus + GoPlus + homoglyph + RDAP age
 const domain = await checkDomain('phantom-app.io')
 // { level: 'RED', reason: 'Known phishing domain', confidence: 0.95 }
 
-// Token risk — on-chain checks + Token-2022 honeypot flags
+// Token risk — on-chain checks + GoPlus + Jupiter intelligence
 const token = await checkTokenRisk('EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v')
-// { level: 'GREEN', score: 2, reasons: [] }
+// { level: 'GREEN', score: 2, reasons: [], intel: { jupiter: { organicScore: 92, isVerified: true, ... } } }
 
 // Transaction decoder — streams Claude output token by token
 for await (const chunk of decodeTransaction(serializedTx)) {
   process.stdout.write(chunk)
 }
-// ⚠️ Account 8xGz... ownership is being transferred to a new program — ownership-hijack pattern.
-// This transaction moves control of your token account to an unknown program...
+// This transaction transfers ownership of your token account to an unknown program...
 ```
 
 All functions are cache-first (Upstash Redis) and circuit-breakered — an outage at Helius, GoPlus, or Anthropic degrades gracefully rather than crashing the SDK.
-
----
-
-## Bounty integrations
-
-| Track | Integration |
-|---|---|
-| **Umbra** | `submitPrivateReport()` — anonymous drain reports via Umbra SDK |
-| **Cloak** | `submitPrivateReportCloak()` — privacy-preserving threat submission |
-| **RPC Fast** | Tier-3 fallback in RPC chain (Helius → Triton → RPC Fast → public) |
 
 ---
 
@@ -230,12 +262,12 @@ All functions are cache-first (Upstash Redis) and circuit-breakered — an outag
 | SDK | TypeScript, `@walour/sdk` |
 | Extension | Chrome Manifest V3, TypeScript, Vite |
 | On-chain oracle | Anchor / Rust, Solana |
-| Backend | Express + Vercel Edge Functions |
+| Backend | Vercel Edge Functions (production), Node.js HTTP (local dev) |
 | Database | Supabase (PostgreSQL) |
 | Cache | Upstash Redis (cache-first on all SDK calls) |
-| AI | Claude Haiku 4.5 (streaming), Claude Sonnet 4.6 (deep analysis) |
-| RPC | Helius → Triton → RPC Fast → public |
-| Threat intel | ScamSniffer, GoPlus Security, RDAP |
+| AI | Claude Haiku 4.5 (streaming tx decode) |
+| RPC | Helius -> Triton -> RPC Fast -> public (circuit-breakered fallback chain) |
+| Threat intel | ScamSniffer (60k domains), GoPlus Security, Jupiter Tokens v2 + Price v3, RDAP |
 
 ---
 

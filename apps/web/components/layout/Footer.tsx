@@ -40,15 +40,18 @@ export default function Footer() {
         <nav className="foot-nav" aria-label="Footer navigation">
           <div className="foot-col">
             <span className="foot-col-label">Product</span>
-            <a href="https://walour.io/stats">Stats</a>
-            <a href="https://walour.io/registry">Registry</a>
-            <a href="https://chromewebstore.google.com" target="_blank" rel="noopener noreferrer">Extension</a>
+            <a href="/stats">Stats</a>
+            <a href="/registry">Registry</a>
           </div>
           <div className="foot-col">
             <span className="foot-col-label">Developers</span>
-            <a href="https://walour.io/docs">Docs</a>
-            <a href="https://www.npmjs.com/package/@walour/sdk" target="_blank" rel="noopener noreferrer">npm</a>
-            <a href="https://github.com/Sahir619" target="_blank" rel="noopener noreferrer">GitHub</a>
+            <a href="/docs">Docs</a>
+            <a href="https://github.com/Walour/walour" target="_blank" rel="noopener noreferrer">GitHub</a>
+          </div>
+          <div className="foot-col">
+            <span className="foot-col-label">Legal</span>
+            <a href="/privacy">Privacy Policy</a>
+            <a href="/terms">Terms of Service</a>
           </div>
         </nav>
       </div>
@@ -59,7 +62,7 @@ export default function Footer() {
           <a href="https://x.com/walourApp" target="_blank" rel="noopener noreferrer" aria-label="Follow on X">
             <XIcon />
           </a>
-          <a href="https://github.com/Sahir619" target="_blank" rel="noopener noreferrer" aria-label="GitHub">
+          <a href="https://github.com/Walour/walour" target="_blank" rel="noopener noreferrer" aria-label="GitHub">
             <GitHubIcon />
           </a>
         </div>

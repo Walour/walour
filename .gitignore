@@ -17,4 +17,23 @@ apps/mobile/
 .vercel
 graphify-out/
 VERIFICATION.md
-.planning/config.json
+
+# Internal planning — not for public repo
+.planning/
+webpage-plan.md
+
+# Internal docs — strategy / submission notes
+docs/colosseum-score.md
+docs/CHROME_SUBMISSION_CHECKLIST.md
+docs/DEMO_SCRIPT.md
+docs/plan-phase-01.md
+docs/plan-phase-02.md
+docs/plan-phase-03.md
+docs/jupiter-verification.md
+
+# Claude Code workspace
+.claude/
+
+# Locally installed agent skills
+apps/extension/.agents/
+apps/extension/skills-lock.json

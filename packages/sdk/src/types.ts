@@ -5,6 +5,19 @@ export interface TokenRiskResult {
   score: number
   reasons: string[]
   checks: Record<string, { passed: boolean; weight: number; detail: string }>
+  intel?: {
+    jupiter?: {
+      organicScore: number | null
+      isVerified: boolean | null
+      isSus: true | null
+      devBalancePct: number | null
+      devMints: number | null
+      liquidityUsd: number | null
+      hasPrice: boolean | null
+      tags: string[]
+      fetchedAt: number
+    }
+  }
 }
 
 export interface DomainRiskResult {

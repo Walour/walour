@@ -172,6 +172,7 @@ a:hover { text-decoration: underline; }
 .site-bg .bg-canvas {
   position: absolute;
   inset: 0;
+  pointer-events: none;
 }
 
 .site-bg .bg-scan {
@@ -396,6 +397,16 @@ a:hover { text-decoration: underline; }
 
 
 
+/* Right-side group: CTA + theme + hamburger */
+.nav-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  position: relative;
+  z-index: 1;
+  flex-shrink: 0;
+}
+
 .hamburger {
   display: none;
   background: transparent;
@@ -409,34 +420,87 @@ a:hover { text-decoration: underline; }
   cursor: pointer;
   position: relative;
   z-index: 1;
+  flex-shrink: 0;
+}
+
+/* Mobile dropdown — lives OUTSIDE nav-inner so overflow:hidden doesn't clip it */
+.nav-mobile-menu {
+  display: none;
+  pointer-events: auto;
 }
 
 @media (max-width: 720px) {
-  .nav-inner { padding: 6px 6px 6px 14px; }
-  .nav-links { display: none; }
-  .hamburger { display: inline-flex; }
-
-  .nav-links.open {
-    display: flex;
-    flex-direction: column;
-    align-items: stretch;
-    gap: 4px;
-    position: absolute;
-    top: calc(100% + 10px);
-    right: 0;
-    background: rgba(22, 27, 34, 0.92);
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    border-radius: var(--radius-lg);
-    padding: 8px;
-    min-width: 200px;
-    backdrop-filter: blur(18px) saturate(140%);
-    -webkit-backdrop-filter: blur(18px) saturate(140%);
-    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
+  /* Tighten pill bar */
+  .nav-inner {
+    padding: 6px 6px 6px 14px;
+    gap: 0;
   }
 
-  
+  /* Hide desktop nav links and desktop CTA entirely */
+  .nav-links { display: none !important; }
+  .nav-cta   { display: none; }
 
-  .nav-links.open a { padding: 10px 14px; }
+  /* Show hamburger */
+  .hamburger { display: inline-flex; }
+
+  /* Mobile dropdown panel */
+  .nav-mobile-menu.open {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 8px;
+    background: rgba(14, 20, 27, 0.97);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-top: none;
+    border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+    backdrop-filter: blur(20px) saturate(150%);
+    -webkit-backdrop-filter: blur(20px) saturate(150%);
+    box-shadow: 0 16px 48px rgba(0, 0, 0, 0.55);
+  }
+
+  .nav-mobile-link {
+    display: block;
+    color: var(--text-muted);
+    font-size: 15px;
+    font-weight: 500;
+    text-decoration: none;
+    padding: 12px 14px;
+    border-radius: var(--radius);
+    transition: color 0.15s ease, background 0.15s ease;
+  }
+  .nav-mobile-link:hover {
+    color: var(--text);
+    background: rgba(255, 255, 255, 0.04);
+    text-decoration: none;
+  }
+  .nav-mobile-link.active {
+    color: var(--accent);
+    background: rgba(0, 201, 167, 0.1);
+  }
+
+  .nav-mobile-cta {
+    display: block;
+    margin-top: 8px;
+    padding: 13px 14px;
+    border-radius: var(--radius-pill);
+    background: var(--accent);
+    color: #062b25 !important;
+    font-weight: 600;
+    font-size: 14px;
+    text-align: center;
+    text-decoration: none !important;
+    transition: filter 0.15s ease;
+  }
+  .nav-mobile-cta:hover {
+    filter: brightness(1.08);
+    text-decoration: none;
+  }
+
+}
+
+/* Hide tagline on very narrow screens to prevent brand overflow */
+@media (max-width: 380px) {
+  .brand-tagline { display: none; }
 }
 
 /* ---------- Buttons ---------- */
@@ -537,6 +601,13 @@ a:hover { text-decoration: underline; }
   overflow: hidden;
   contain: paint;
 }
+
+/* Horizontal scroll on mobile so tables never clip or overflow the viewport */
+.table-card-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+.table-card-scroll table { min-width: 520px; }
 
 table.threats {
   width: 100%;
@@ -727,9 +798,11 @@ table.threats tbody tr:hover { background: rgba(255, 255, 255, 0.015); }
 .foot-social a:hover { color: var(--text); }
 
 @media (max-width: 640px) {
-  .foot-inner { flex-direction: column; gap: 32px; padding: 36px 24px 24px; }
-  .foot-nav { gap: 32px; }
-  .foot-bar { flex-direction: column; gap: 12px; text-align: center; }
+  .foot-inner { flex-direction: column; align-items: center; gap: 32px; padding: 36px 24px 24px; }
+  .foot-brand { align-items: center; text-align: center; }
+  .foot-nav { gap: 32px; justify-content: center; }
+  .foot-col { align-items: center; text-align: center; }
+  .foot-bar { flex-direction: column; align-items: center; gap: 12px; text-align: center; }
 }
 
 /* ---------- Stats Strip ---------- */
@@ -1076,6 +1149,8 @@ table.threats tbody tr:hover { background: rgba(255, 255, 255, 0.015); }
   display: flex;
   justify-content: space-between;
   align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
   color: var(--text-muted);
   font-size: 13px;
   margin-bottom: 12px;
@@ -2106,6 +2181,12 @@ td.col-date { white-space: nowrap; color: var(--text-muted); }
   letter-spacing: -0.02em;
 }
 
+@media (max-width: 720px) {
+  .cta-inner { padding: 36px 24px; }
+  .how-section-head { margin-bottom: 40px; }
+  .step-visual-area { height: 200px; }
+}
+
 /* ---------- Light mode overrides for new sections ---------- */
 
 
@@ -2723,11 +2804,17 @@ td.col-date { white-space: nowrap; color: var(--text-muted); }
   color: var(--accent);
 }
 
+.docs-table-wrap {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  margin: 12px 0 20px;
+}
 .docs-table {
   width: 100%;
+  min-width: 400px;
   border-collapse: collapse;
   font-size: 13px;
-  margin: 12px 0 20px;
+  margin: 0;
 }
 
 .docs-table th {

@@ -7,7 +7,6 @@
     "build": "vite build",
     "zip": "node scripts/zip.mjs"
   },
-  "dependencies": {},
   "devDependencies": {
     "@types/chrome": "^0.0.268",
     "typescript": "^5.4.0",

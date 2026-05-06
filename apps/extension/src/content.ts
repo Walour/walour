@@ -49,7 +49,7 @@ if (typeof (window as any).__walour_content_injected === 'undefined') {
   function interceptWallet(wallet: WalletProvider): void {
     // Re-check every call — Phantom re-injects and overwrites our hook
     if ((wallet.signTransaction as any)?.__walour_intercepted) return
-    wallet.__walour_hooked = true
+
 
     const originalSign = wallet.signTransaction?.bind(wallet)
     const originalSignAndSend = wallet.signAndSendTransaction?.bind(wallet)
@@ -70,7 +70,7 @@ if (typeof (window as any).__walour_content_injected === 'undefined') {
           }
 
           const hostname = window.location.hostname
-          const reqId = Math.random().toString(36).slice(2)
+          const reqId = crypto.randomUUID()
 
           try { showOverlay() } catch {
             originalFn(tx, opts).then(resolve).catch(reject)
@@ -122,6 +122,14 @@ if (typeof (window as any).__walour_content_injected === 'undefined') {
             window.removeEventListener('message', onBridgeMessage)
             hideOverlay()
             if (allow) {
+              // TOCTOU guard: re-serialize at decision time.
+              // If the page mutated tx after we scanned it, bytes will differ — reject.
+              let currentBytes: string | null = null
+              try { currentBytes = serializeTx(tx) } catch { /* ignore — can't compare */ }
+              if (currentBytes !== null && currentBytes !== txBase64) {
+                reject(new Error('Walour: transaction was modified after security check — blocked'))
+                return
+              }
               originalFn(tx, opts).then(resolve).catch(reject)
             } else {
               window.postMessage({

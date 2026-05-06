@@ -47,12 +47,21 @@ const DEFAULT_API_BASE = __API_BASE__
 const SUPABASE_URL = __SUPABASE_URL__
 const SUPABASE_ANON_KEY = __SUPABASE_ANON_KEY__
 
-// Map of tabId → active port
-const activePorts = new Map<number, chrome.runtime.Port>()
-
 // Map of tabId → latest scan result (capped at 50 tabs to avoid memory growth)
 const lastScan = new Map<number, ScanResult>()
 const LAST_SCAN_CAP = 50
+
+function updateBadge(tabId: number, level: ScanResult['level']): void {
+  const badge: Record<ScanResult['level'], { text: string; color: string }> = {
+    RED:     { text: '!',  color: '#EF4444' },
+    AMBER:   { text: '·',  color: '#F59E0B' },
+    GREEN:   { text: '',   color: '#22C55E' },
+    UNKNOWN: { text: '',   color: '#00C9A7' },
+  }
+  const { text, color } = badge[level]
+  chrome.action.setBadgeText({ text, tabId })
+  if (text) chrome.action.setBadgeBackgroundColor({ color, tabId })
+}
 
 function setLastScan(tabId: number, partial: Partial<ScanResult> & { hostname?: string }): void {
   const existing = lastScan.get(tabId)
@@ -66,6 +75,7 @@ function setLastScan(tabId: number, partial: Partial<ScanResult> & { hostname?: 
     updatedAt: Date.now(),
   }
   lastScan.set(tabId, merged)
+  updateBadge(tabId, merged.level)
   // Evict oldest if over cap
   if (lastScan.size > LAST_SCAN_CAP) {
     let oldestKey: number | null = null
@@ -115,6 +125,9 @@ async function handleScanTx(
   hostname: string,
   tabId: number | undefined
 ): Promise<void> {
+  chrome.storage.local.get(['stats.scans'], (res) => {
+    chrome.storage.local.set({ 'stats.scans': ((res['stats.scans'] as number) ?? 0) + 1 })
+  })
   const apiBase = await getApiBase()
 
   // Run scan (domain + token risk check) — up to 3 attempts with exponential backoff
@@ -245,6 +258,9 @@ async function handleScanTx(
 }
 
 async function handleTelemetry(event: DrainBlockedEvent): Promise<void> {
+  chrome.storage.local.get(['stats.blocks'], (res) => {
+    chrome.storage.local.set({ 'stats.blocks': ((res['stats.blocks'] as number) ?? 0) + 1 })
+  })
   // Fire-and-forget — never log keys or seed phrases, only pubkeys
   try {
     await fetch(`${SUPABASE_URL}/rest/v1/drain_blocked_events`, {
@@ -292,9 +308,6 @@ chrome.runtime.onConnect.addListener((port) => {
   if (port.name !== 'walour-scan') return
 
   const tabId = port.sender?.tab?.id
-  if (tabId !== undefined) {
-    activePorts.set(tabId, port)
-  }
 
   port.onMessage.addListener((msg: IncomingMessage) => {
     // Security: only process messages from our own extension
@@ -309,16 +322,16 @@ chrome.runtime.onConnect.addListener((port) => {
     }
   })
 
-  port.onDisconnect.addListener(() => {
-    if (tabId !== undefined) {
-      activePorts.delete(tabId)
-    }
-  })
+  port.onDisconnect.addListener(() => { /* no scan state to clean up per-port */ })
 })
 
 chrome.tabs.onRemoved.addListener((tabId) => {
   lastScan.delete(tabId)
-  activePorts.delete(tabId)
+})
+
+chrome.tabs.onActivated.addListener(({ tabId }) => {
+  const scan = lastScan.get(tabId)
+  updateBadge(tabId, scan?.level ?? 'UNKNOWN')
 })
 
 chrome.runtime.onInstalled.addListener(() => {

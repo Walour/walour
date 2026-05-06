@@ -11,6 +11,7 @@ window.addEventListener('message', (e: MessageEvent) => {
     return
   }
   if (type !== 'SCAN_TX') return
+  if (ports.size >= 3) return  // rate-limit: at most 3 concurrent scans per page
 
   try {
     const port = chrome.runtime.connect({ name: 'walour-scan' })

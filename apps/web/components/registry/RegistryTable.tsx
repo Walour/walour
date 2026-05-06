@@ -149,6 +149,7 @@ function SkeletonRows() {
 export default function RegistryTable({ rows, loading = false, onRowClick }: RegistryTableProps) {
   return (
     <div className="table-card">
+      <div className="table-card-scroll">
       <table className="threats">
         <thead>
           <tr>
@@ -242,6 +243,7 @@ export default function RegistryTable({ rows, loading = false, onRowClick }: Reg
           )}
         </tbody>
       </table>
+      </div>
     </div>
   )
 }

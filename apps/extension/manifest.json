@@ -1,14 +1,12 @@
 {
   "manifest_version": 3,
-  "name": "Walour — Solana Wallet Protection",
+  "name": "Walour: Solana Wallet Protection",
   "version": "0.1.0",
   "description": "Real-time scam protection for Solana. Blocks phishing sites, malicious tokens, and wallet drainers before you sign.",
   "permissions": [
     "tabs",
     "storage",
-    "scripting",
-    "activeTab",
-    "webNavigation"
+    "activeTab"
   ],
   "host_permissions": [
     "<all_urls>"

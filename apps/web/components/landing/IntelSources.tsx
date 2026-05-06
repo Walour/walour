@@ -3,59 +3,67 @@
 import { useEffect, useState } from 'react'
 import { useInView } from '@/hooks/useInView'
 
-const SOURCES = [
-  { name: 'Phishing Domains',       tag: '60,000+ known threats',              conf: null, color: '#EF4444' },
-  { name: 'Token Risk',              tag: 'Honeypot and rug detection',         conf: null, color: '#A855F7' },
-  { name: 'Site Impersonation',      tag: 'Fake wallet and dApp sites',         conf: null, color: '#F59E0B' },
-  { name: 'Transaction Simulation',  tag: 'What actually leaves your wallet',   conf: null, color: '#00C9A7' },
-  { name: 'AI Analysis',             tag: 'Plain-English explanation',           conf: null, color: '#00C9A7' },
+const LEFT_SOURCES = [
+  { name: 'Phishing Domains',      tag: '60,000+ known threats',             color: '#EF4444' },
+  { name: 'Token Risk',            tag: 'Honeypot and rug detection',        color: '#A855F7' },
+  { name: 'Jupiter Intelligence',  tag: 'Organic score + audit + liquidity', color: '#FCA311' },
 ] as const
 
-// SVG canvas geometry — diagram is laid out in a fixed coordinate space then
-// scaled responsively. Sources sit on the left, the oracle sits on the right.
+const RIGHT_SOURCES = [
+  { name: 'Site Impersonation',     tag: 'Fake wallet and dApp sites',       color: '#F59E0B' },
+  { name: 'Transaction Simulation', tag: 'What actually leaves your wallet', color: '#00C9A7' },
+  { name: 'AI Analysis',            tag: 'Plain-English explanation',         color: '#3B82F6' },
+] as const
+
+const ALL_SOURCES = [...LEFT_SOURCES, ...RIGHT_SOURCES]
+
+// Canvas geometry — oracle centered, 3 sources each side
 const VW = 1000
-const VH = 520
-const ORACLE = { x: 760, y: VH / 2, w: 220, h: 150 }
-const SOURCE_X = 20
-const SOURCE_W = 300
-const SOURCE_H = 72
-const SOURCE_GAP = 24
-const SOURCE_TOTAL_H = SOURCES.length * SOURCE_H + (SOURCES.length - 1) * SOURCE_GAP
-const SOURCE_Y0 = (VH - SOURCE_TOTAL_H) / 2
+const VH = 460
+const SRC_W = 248
+const SRC_H = 64
+const SRC_GAP = 20
+const LEFT_SRC_X = 12
+const RIGHT_SRC_X = 740
+const ORACLE = { x: 378, y: VH / 2, w: 244, h: 158 }
 
-function sourceCenter(i: number) {
-  const y = SOURCE_Y0 + i * (SOURCE_H + SOURCE_GAP) + SOURCE_H / 2
-  return { x: SOURCE_X + SOURCE_W, y }
+const SRC_TOTAL_H = 3 * SRC_H + 2 * SRC_GAP  // 252
+const SRC_Y0 = (VH - SRC_TOTAL_H) / 2         // 104
+
+function leftCenter(i: number) {
+  return { x: LEFT_SRC_X + SRC_W, y: SRC_Y0 + i * (SRC_H + SRC_GAP) + SRC_H / 2 }
 }
 
-function oracleAnchor() {
-  return { x: ORACLE.x, y: ORACLE.y }
+function rightCenter(i: number) {
+  return { x: RIGHT_SRC_X, y: SRC_Y0 + i * (SRC_H + SRC_GAP) + SRC_H / 2 }
 }
 
-// Smooth cubic curve from a source row to the oracle anchor.
-function pathFor(i: number) {
-  const a = sourceCenter(i)
-  const b = oracleAnchor()
-  const dx = b.x - a.x
-  const c1x = a.x + dx * 0.5
-  const c1y = a.y
-  const c2x = b.x - dx * 0.5
-  const c2y = b.y
-  return `M ${a.x} ${a.y} C ${c1x} ${c1y}, ${c2x} ${c2y}, ${b.x} ${b.y}`
+function leftPath(i: number) {
+  const a = leftCenter(i)
+  const bx = ORACLE.x
+  const by = ORACLE.y
+  const dx = bx - a.x
+  return `M ${a.x} ${a.y} C ${a.x + dx * 0.5} ${a.y}, ${bx - dx * 0.5} ${by}, ${bx} ${by}`
+}
+
+function rightPath(i: number) {
+  const a = rightCenter(i)
+  const bx = ORACLE.x + ORACLE.w
+  const by = ORACLE.y
+  const dx = a.x - bx
+  return `M ${a.x} ${a.y} C ${a.x - dx * 0.5} ${a.y}, ${bx + dx * 0.5} ${by}, ${bx} ${by}`
 }
 
 export default function IntelSources() {
   const { ref, inView } = useInView<HTMLDivElement>({ threshold: 0.18 })
   const [pulse, setPulse] = useState(-1)
 
-  // Sequential "feed firing" pulse — highlights one source at a time so each
-  // line gets a brighter dot travelling toward the oracle.
   useEffect(() => {
     if (!inView) return
     let i = 0
     let t: ReturnType<typeof setTimeout>
     const tick = () => {
-      setPulse(i % SOURCES.length)
+      setPulse(i % ALL_SOURCES.length)
       i++
       t = setTimeout(tick, 900)
     }
@@ -64,7 +72,7 @@ export default function IntelSources() {
   }, [inView])
 
   return (
-    <section style={{ padding: '72px 0' }}>
+    <section style={{ padding: '48px 0' }}>
       <style>{`
         @keyframes wal-flow {
           0%   { stroke-dashoffset: 0; }
@@ -92,6 +100,9 @@ export default function IntelSources() {
           opacity: 0;
           transform: translateX(-16px);
         }
+        .wal-source-card.right-side {
+          transform: translateX(16px);
+        }
         .wal-source-card.in {
           opacity: 1;
           transform: translateX(0);
@@ -118,7 +129,7 @@ export default function IntelSources() {
         }
         @media (max-width: 860px) {
           .wal-desktop { display: none !important; }
-          .wal-mobile { display: flex !important; }
+          .wal-mobile  { display: flex !important; }
         }
         @media (prefers-reduced-motion: reduce) {
           .wal-line, .wal-pulse-ring, .wal-live-dot { animation: none !important; }
@@ -134,7 +145,7 @@ export default function IntelSources() {
             margin: '0 0 14px',
             lineHeight: 1.05,
           }}>
-            Five layers of protection.
+            Six layers of protection.
           </h2>
           <p style={{
             color: 'var(--text-muted)',
@@ -143,12 +154,13 @@ export default function IntelSources() {
             maxWidth: 580,
             margin: '0 auto',
           }}>
-            Every transaction you sign is checked against five independent threat signals before the approval prompt appears.
+            Every transaction you sign is checked against six independent threat signals before the approval prompt appears.
           </p>
         </div>
 
         <div ref={ref} style={{ position: 'relative' }}>
-          {/* Desktop / tablet: SVG flow diagram with HTML cards overlaid */}
+
+          {/* Desktop: SVG diagram with HTML cards overlaid */}
           <div
             className="wal-desktop"
             style={{
@@ -157,6 +169,7 @@ export default function IntelSources() {
               aspectRatio: `${VW} / ${VH}`,
               maxWidth: 1100,
               margin: '0 auto',
+              overflow: 'hidden',
             }}
           >
             <svg
@@ -164,7 +177,7 @@ export default function IntelSources() {
               width="100%"
               height="100%"
               preserveAspectRatio="xMidYMid meet"
-              style={{ position: 'absolute', inset: 0, overflow: 'visible' }}
+              style={{ position: 'absolute', inset: 0, overflow: 'hidden' }}
               aria-hidden
             >
               <defs>
@@ -173,15 +186,21 @@ export default function IntelSources() {
                   <stop offset="60%" stopColor="#00C9A7" stopOpacity="0.05" />
                   <stop offset="100%" stopColor="#00C9A7" stopOpacity="0" />
                 </radialGradient>
-                {SOURCES.map((s, i) => (
-                  <linearGradient
-                    key={s.name}
-                    id={`wal-grad-${i}`}
+                {LEFT_SOURCES.map((s, i) => (
+                  <linearGradient key={`lg-l-${i}`} id={`wal-grad-l-${i}`}
                     gradientUnits="userSpaceOnUse"
-                    x1={sourceCenter(i).x}
-                    y1={sourceCenter(i).y}
-                    x2={oracleAnchor().x}
-                    y2={oracleAnchor().y}
+                    x1={leftCenter(i).x} y1={leftCenter(i).y}
+                    x2={ORACLE.x} y2={ORACLE.y}
+                  >
+                    <stop offset="0%" stopColor={s.color} stopOpacity="0.85" />
+                    <stop offset="100%" stopColor="#00C9A7" stopOpacity="0.85" />
+                  </linearGradient>
+                ))}
+                {RIGHT_SOURCES.map((s, i) => (
+                  <linearGradient key={`lg-r-${i}`} id={`wal-grad-r-${i}`}
+                    gradientUnits="userSpaceOnUse"
+                    x1={rightCenter(i).x} y1={rightCenter(i).y}
+                    x2={ORACLE.x + ORACLE.w} y2={ORACLE.y}
                   >
                     <stop offset="0%" stopColor={s.color} stopOpacity="0.85" />
                     <stop offset="100%" stopColor="#00C9A7" stopOpacity="0.85" />
@@ -189,63 +208,35 @@ export default function IntelSources() {
                 ))}
               </defs>
 
-              {/* Soft glow behind the oracle */}
+              {/* Glow behind oracle */}
               <circle
-                cx={ORACLE.x + ORACLE.w / 2}
-                cy={ORACLE.y}
-                r={170}
+                cx={ORACLE.x + ORACLE.w / 2} cy={ORACLE.y}
+                r={190}
                 fill="url(#wal-oracle-glow)"
               />
 
-              {/* Connector lines — one per source */}
-              {SOURCES.map((s, i) => {
-                const d = pathFor(i)
+              {/* Left connector lines */}
+              {LEFT_SOURCES.map((s, i) => {
+                const d = leftPath(i)
                 const isActive = pulse === i
                 return (
-                  <g key={s.name}>
-                    {/* Faint base line */}
-                    <path
-                      d={d}
-                      fill="none"
-                      stroke={`url(#wal-grad-${i})`}
-                      strokeWidth={1.25}
+                  <g key={`lc-${i}`}>
+                    <path d={d} fill="none" stroke={`url(#wal-grad-l-${i})`} strokeWidth={1.25}
                       opacity={inView ? 0.55 : 0}
                       style={{ transition: 'opacity 0.8s ease', transitionDelay: `${i * 90 + 200}ms` }}
                     />
-                    {/* Animated dashed flow */}
-                    <path
-                      className={inView ? 'wal-line' : ''}
-                      d={d}
-                      fill="none"
-                      stroke={`url(#wal-grad-${i})`}
-                      strokeWidth={1.5}
+                    <path className={inView ? 'wal-line' : ''} d={d} fill="none"
+                      stroke={`url(#wal-grad-l-${i})`} strokeWidth={1.5}
                       opacity={inView ? 0.9 : 0}
                       style={{ transition: 'opacity 0.8s ease', transitionDelay: `${i * 90 + 300}ms` }}
                     />
-                    {/* Travelling dot — uses animateMotion to ride the path */}
                     {inView && (
                       <circle r={isActive ? 4.5 : 3} fill={s.color}>
-                        <animateMotion
-                          dur={isActive ? '1.1s' : '2.6s'}
-                          repeatCount="indefinite"
-                          path={d}
-                        />
-                        {isActive && (
-                          <animate
-                            attributeName="opacity"
-                            values="1;0.6;1"
-                            dur="1.1s"
-                            repeatCount="indefinite"
-                          />
-                        )}
+                        <animateMotion dur={isActive ? '1.1s' : '2.6s'} repeatCount="indefinite" path={d} />
+                        {isActive && <animate attributeName="opacity" values="1;0.6;1" dur="1.1s" repeatCount="indefinite" />}
                       </circle>
                     )}
-                    {/* Anchor dot at source edge */}
-                    <circle
-                      cx={sourceCenter(i).x}
-                      cy={sourceCenter(i).y}
-                      r={3}
-                      fill={s.color}
+                    <circle cx={leftCenter(i).x} cy={leftCenter(i).y} r={3} fill={s.color}
                       opacity={inView ? 1 : 0}
                       style={{ transition: 'opacity 0.6s ease', transitionDelay: `${i * 90 + 400}ms` }}
                     />
@@ -253,101 +244,128 @@ export default function IntelSources() {
                 )
               })}
 
-              {/* Oracle pulse rings — purely decorative */}
+              {/* Right connector lines */}
+              {RIGHT_SOURCES.map((s, i) => {
+                const d = rightPath(i)
+                const isActive = pulse === i + LEFT_SOURCES.length
+                return (
+                  <g key={`rc-${i}`}>
+                    <path d={d} fill="none" stroke={`url(#wal-grad-r-${i})`} strokeWidth={1.25}
+                      opacity={inView ? 0.55 : 0}
+                      style={{ transition: 'opacity 0.8s ease', transitionDelay: `${(i + 3) * 90 + 200}ms` }}
+                    />
+                    <path className={inView ? 'wal-line' : ''} d={d} fill="none"
+                      stroke={`url(#wal-grad-r-${i})`} strokeWidth={1.5}
+                      opacity={inView ? 0.9 : 0}
+                      style={{ transition: 'opacity 0.8s ease', transitionDelay: `${(i + 3) * 90 + 300}ms` }}
+                    />
+                    {inView && (
+                      <circle r={isActive ? 4.5 : 3} fill={s.color}>
+                        <animateMotion dur={isActive ? '1.1s' : '2.6s'} repeatCount="indefinite" path={d} />
+                        {isActive && <animate attributeName="opacity" values="1;0.6;1" dur="1.1s" repeatCount="indefinite" />}
+                      </circle>
+                    )}
+                    <circle cx={rightCenter(i).x} cy={rightCenter(i).y} r={3} fill={s.color}
+                      opacity={inView ? 1 : 0}
+                      style={{ transition: 'opacity 0.6s ease', transitionDelay: `${(i + 3) * 90 + 400}ms` }}
+                    />
+                  </g>
+                )
+              })}
+
+              {/* Oracle pulse rings */}
               {inView && (
                 <>
                   <circle
                     className="wal-pulse-ring"
-                    cx={ORACLE.x + ORACLE.w / 2}
-                    cy={ORACLE.y}
+                    cx={ORACLE.x + ORACLE.w / 2} cy={ORACLE.y}
                     r={ORACLE.w / 2 + 8}
-                    fill="none"
-                    stroke="rgba(0, 201, 167, 0.45)"
-                    strokeWidth={1}
+                    fill="none" stroke="rgba(0, 201, 167, 0.45)" strokeWidth={1}
                   />
                   <circle
                     className="wal-pulse-ring"
-                    cx={ORACLE.x + ORACLE.w / 2}
-                    cy={ORACLE.y}
+                    cx={ORACLE.x + ORACLE.w / 2} cy={ORACLE.y}
                     r={ORACLE.w / 2 + 8}
-                    fill="none"
-                    stroke="rgba(0, 201, 167, 0.3)"
-                    strokeWidth={1}
+                    fill="none" stroke="rgba(0, 201, 167, 0.3)" strokeWidth={1}
                     style={{ animationDelay: '1.2s' }}
                   />
                 </>
               )}
             </svg>
 
-            {/* Source cards — absolutely positioned in % so they track the SVG viewBox */}
-            {SOURCES.map((s, i) => {
-              const top = (SOURCE_Y0 + i * (SOURCE_H + SOURCE_GAP)) / VH * 100
-              const left = SOURCE_X / VW * 100
-              const width = SOURCE_W / VW * 100
-              const height = SOURCE_H / VH * 100
+            {/* Left source cards */}
+            {LEFT_SOURCES.map((s, i) => {
+              const top    = (SRC_Y0 + i * (SRC_H + SRC_GAP)) / VH * 100
+              const left   = LEFT_SRC_X / VW * 100
+              const width  = SRC_W / VW * 100
+              const height = SRC_H / VH * 100
               return (
                 <div
                   key={s.name}
                   className={`glass wal-source-card${inView ? ' in' : ''}`}
                   style={{
                     position: 'absolute',
-                    top: `${top}%`,
-                    left: `${left}%`,
-                    width: `${width}%`,
-                    height: `${height}%`,
+                    top: `${top}%`, left: `${left}%`,
+                    width: `${width}%`, height: `${height}%`,
                     borderRadius: 'var(--radius-md)',
                     padding: '10px 14px',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    justifyContent: 'center',
-                    gap: 4,
+                    display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 4,
                     transitionDelay: `${i * 90}ms`,
                   }}
                 >
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-                    <span style={{ fontWeight: 700, fontSize: 14, color: 'var(--text)' }}>{s.name}</span>
-                    {s.conf !== null ? (
-                      <span style={{
-                        fontSize: 10,
-                        fontWeight: 600,
-                        color: s.color,
-                        background: `${s.color}1A`,
-                        padding: '2px 7px',
-                        borderRadius: 99,
-                        letterSpacing: '0.04em',
-                        whiteSpace: 'nowrap',
-                      }}>
-                        {s.conf}% conf
-                      </span>
-                    ) : (
-                      <span style={{
-                        fontSize: 10,
-                        fontWeight: 600,
-                        color: 'var(--text-muted)',
-                        background: 'rgba(255,255,255,0.05)',
-                        padding: '2px 7px',
-                        borderRadius: 99,
-                        letterSpacing: '0.04em',
-                        whiteSpace: 'nowrap',
-                      }}>
-                        live
-                      </span>
-                    )}
+                    <span style={{ fontWeight: 700, fontSize: 13, color: 'var(--text)' }}>{s.name}</span>
+                    <span style={{
+                      fontSize: 10, fontWeight: 600, color: 'var(--text-muted)',
+                      background: 'rgba(255,255,255,0.05)', padding: '2px 7px',
+                      borderRadius: 99, letterSpacing: '0.04em', whiteSpace: 'nowrap',
+                    }}>live</span>
                   </div>
                   <span style={{
-                    fontSize: 10.5,
-                    fontWeight: 600,
-                    letterSpacing: '0.5px',
-                    textTransform: 'uppercase',
-                    color: 'var(--text-muted)',
-                  }}>
-                    {s.tag}
-                  </span>
+                    fontSize: 10, fontWeight: 600, letterSpacing: '0.5px',
+                    textTransform: 'uppercase', color: 'var(--text-muted)',
+                  }}>{s.tag}</span>
                 </div>
               )
             })}
 
-            {/* Oracle output card */}
+            {/* Right source cards */}
+            {RIGHT_SOURCES.map((s, i) => {
+              const top    = (SRC_Y0 + i * (SRC_H + SRC_GAP)) / VH * 100
+              const left   = RIGHT_SRC_X / VW * 100
+              const width  = SRC_W / VW * 100
+              const height = SRC_H / VH * 100
+              return (
+                <div
+                  key={s.name}
+                  className={`glass wal-source-card right-side${inView ? ' in' : ''}`}
+                  style={{
+                    position: 'absolute',
+                    top: `${top}%`, left: `${left}%`,
+                    width: `${width}%`, height: `${height}%`,
+                    borderRadius: 'var(--radius-md)',
+                    padding: '10px 14px',
+                    display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 4,
+                    transitionDelay: `${(i + 3) * 90}ms`,
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                    <span style={{ fontWeight: 700, fontSize: 13, color: 'var(--text)' }}>{s.name}</span>
+                    <span style={{
+                      fontSize: 10, fontWeight: 600, color: 'var(--text-muted)',
+                      background: 'rgba(255,255,255,0.05)', padding: '2px 7px',
+                      borderRadius: 99, letterSpacing: '0.04em', whiteSpace: 'nowrap',
+                    }}>live</span>
+                  </div>
+                  <span style={{
+                    fontSize: 10, fontWeight: 600, letterSpacing: '0.5px',
+                    textTransform: 'uppercase', color: 'var(--text-muted)',
+                  }}>{s.tag}</span>
+                </div>
+              )
+            })}
+
+            {/* Oracle card — centered */}
             <div
               className={`glass wal-oracle-card${inView ? ' in' : ''}`}
               style={{
@@ -359,10 +377,7 @@ export default function IntelSources() {
                 borderRadius: 'var(--radius-lg)',
                 border: '1px solid rgba(0, 201, 167, 0.45)',
                 padding: '14px 16px',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: 6,
-                justifyContent: 'center',
+                display: 'flex', flexDirection: 'column', gap: 6, justifyContent: 'center',
                 boxShadow: '0 0 80px rgba(0, 201, 167, 0.18)',
                 transitionDelay: '500ms',
               }}
@@ -371,155 +386,95 @@ export default function IntelSources() {
                 <span
                   className="wal-live-dot"
                   style={{
-                    width: 8,
-                    height: 8,
-                    borderRadius: 99,
-                    background: 'var(--accent)',
-                    boxShadow: '0 0 10px var(--accent)',
-                    flexShrink: 0,
+                    width: 8, height: 8, borderRadius: 99,
+                    background: 'var(--accent)', boxShadow: '0 0 10px var(--accent)', flexShrink: 0,
                   }}
                 />
                 <span style={{ fontWeight: 700, fontSize: 14, color: 'var(--accent)', letterSpacing: '-0.01em' }}>
                   Walour Oracle
                 </span>
                 <span style={{
-                  marginLeft: 'auto',
-                  fontSize: 9.5,
-                  fontWeight: 600,
-                  color: 'var(--text-muted)',
-                  background: 'rgba(255,255,255,0.05)',
-                  padding: '2px 7px',
-                  borderRadius: 99,
-                  letterSpacing: '0.06em',
-                  textTransform: 'uppercase',
-                }}>
-                  on-chain
-                </span>
+                  marginLeft: 'auto', fontSize: 9.5, fontWeight: 600,
+                  color: 'var(--text-muted)', background: 'rgba(255,255,255,0.05)',
+                  padding: '2px 7px', borderRadius: 99,
+                  letterSpacing: '0.06em', textTransform: 'uppercase',
+                }}>on-chain</span>
               </div>
               <span style={{
-                fontSize: 10,
-                fontWeight: 600,
-                letterSpacing: '0.5px',
-                textTransform: 'uppercase',
-                color: 'var(--text-muted)',
-              }}>
-                Unified output
-              </span>
+                fontSize: 10, fontWeight: 600, letterSpacing: '0.5px',
+                textTransform: 'uppercase', color: 'var(--text-muted)',
+              }}>Unified output</span>
               <p style={{ fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.5, margin: 0 }}>
-                Confidence-weighted threat data. Queryable by any Solana program with no API key or trust assumption.
+                Confidence-weighted threat data. Queryable by any Solana program with no API key.
               </p>
             </div>
           </div>
 
-          {/* Mobile: vertical stack with arrow connectors */}
+          {/* Mobile: vertical stack */}
           <div
             className="wal-mobile"
-            style={{
-              display: 'none',
-              flexDirection: 'column',
-              gap: 10,
-              maxWidth: 480,
-              margin: '0 auto',
-            }}
+            style={{ display: 'none', flexDirection: 'column', gap: 10, maxWidth: 480, margin: '0 auto' }}
           >
-            {SOURCES.map((s, i) => (
+            {ALL_SOURCES.map((s, i) => (
               <div key={s.name} style={{ display: 'flex', flexDirection: 'column', alignItems: 'stretch' }}>
                 <div
                   className={`glass wal-source-card${inView ? ' in' : ''}`}
                   style={{
-                    padding: '12px 14px',
-                    borderRadius: 'var(--radius-md)',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: 4,
+                    padding: '12px 14px', borderRadius: 'var(--radius-md)',
+                    display: 'flex', flexDirection: 'column', gap: 4,
                     transitionDelay: `${i * 70}ms`,
                   }}
                 >
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
                     <span style={{ fontWeight: 700, fontSize: 14, color: 'var(--text)' }}>{s.name}</span>
-                    {s.conf !== null ? (
-                      <span style={{
-                        fontSize: 10,
-                        fontWeight: 600,
-                        color: s.color,
-                        background: `${s.color}1A`,
-                        padding: '2px 7px',
-                        borderRadius: 99,
-                      }}>
-                        {s.conf}% conf
-                      </span>
-                    ) : (
-                      <span style={{
-                        fontSize: 10,
-                        fontWeight: 600,
-                        color: 'var(--text-muted)',
-                        background: 'rgba(255,255,255,0.05)',
-                        padding: '2px 7px',
-                        borderRadius: 99,
-                      }}>
-                        live
-                      </span>
-                    )}
+                    <span style={{
+                      fontSize: 10, fontWeight: 600, color: 'var(--text-muted)',
+                      background: 'rgba(255,255,255,0.05)', padding: '2px 7px', borderRadius: 99,
+                    }}>live</span>
                   </div>
                   <span style={{
-                    fontSize: 10.5,
-                    fontWeight: 600,
-                    letterSpacing: '0.5px',
-                    textTransform: 'uppercase',
-                    color: 'var(--text-muted)',
-                  }}>
-                    {s.tag}
-                  </span>
+                    fontSize: 10.5, fontWeight: 600, letterSpacing: '0.5px',
+                    textTransform: 'uppercase', color: 'var(--text-muted)',
+                  }}>{s.tag}</span>
                 </div>
-                <div style={{ display: 'flex', justifyContent: 'center', padding: '4px 0', color: 'var(--text-muted)', opacity: 0.5 }} aria-hidden>
+                <div style={{
+                  display: 'flex', justifyContent: 'center', padding: '4px 0',
+                  color: 'var(--text-muted)', opacity: 0.5,
+                }} aria-hidden>
                   <svg width="10" height="14" viewBox="0 0 10 14" fill="none">
                     <path d="M5 0 V12 M1 8 L5 12 L9 8" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
                   </svg>
                 </div>
               </div>
             ))}
-
             <div
               className={`glass wal-oracle-card${inView ? ' in' : ''}`}
               style={{
-                padding: '14px 16px',
-                borderRadius: 'var(--radius-lg)',
+                padding: '14px 16px', borderRadius: 'var(--radius-lg)',
                 border: '1px solid rgba(0, 201, 167, 0.45)',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: 6,
+                display: 'flex', flexDirection: 'column', gap: 6,
                 boxShadow: '0 0 60px rgba(0, 201, 167, 0.15)',
               }}
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span
-                  className="wal-live-dot"
-                  style={{
-                    width: 8, height: 8, borderRadius: 99,
-                    background: 'var(--accent)',
-                    boxShadow: '0 0 10px var(--accent)',
-                  }}
-                />
+                <span className="wal-live-dot" style={{
+                  width: 8, height: 8, borderRadius: 99,
+                  background: 'var(--accent)', boxShadow: '0 0 10px var(--accent)',
+                }} />
                 <span style={{ fontWeight: 700, fontSize: 14, color: 'var(--accent)' }}>Walour Oracle</span>
                 <span style={{
-                  marginLeft: 'auto',
-                  fontSize: 9.5,
-                  fontWeight: 600,
-                  color: 'var(--text-muted)',
-                  background: 'rgba(255,255,255,0.05)',
-                  padding: '2px 7px',
-                  borderRadius: 99,
-                  letterSpacing: '0.06em',
-                  textTransform: 'uppercase',
-                }}>
-                  on-chain
-                </span>
+                  marginLeft: 'auto', fontSize: 9.5, fontWeight: 600,
+                  color: 'var(--text-muted)', background: 'rgba(255,255,255,0.05)',
+                  padding: '2px 7px', borderRadius: 99,
+                  letterSpacing: '0.06em', textTransform: 'uppercase',
+                }}>on-chain</span>
               </div>
               <p style={{ fontSize: 12.5, color: 'var(--text-muted)', lineHeight: 1.5, margin: 0 }}>
                 Confidence-weighted threat data. Queryable by any Solana program with no API key or trust assumption.
               </p>
             </div>
           </div>
+
         </div>
       </div>
     </section>

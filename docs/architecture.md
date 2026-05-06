@@ -1,4 +1,4 @@
-# Walour — System Architecture
+# Walour: System Architecture
 
 **Version:** v4 · **Date:** 2026-05-03
 
@@ -32,7 +32,6 @@ Risk       Decoder                        Check
 Scorer     (Claude                        (Homoglyph +
 (Helius    Sonnet 4.6)                    Corpus +
 + GoPlus)                                 GoPlus)
-+ GoPlus)
     │          │                              │
     └──────────┴──────────────────────────────┘
                     │
@@ -171,7 +170,7 @@ All external dependencies wrap in a circuit breaker:
 | Dependency | Primary | Fallback | Last Resort |
 |---|---|---|---|
 | RPC | Helius | Triton | Solana public RPC |
-| LLM | Claude Sonnet 4.6 | Claude Haiku 4.5 | Cached generic warning |
+| LLM | Claude Haiku 4.5 | — | Cached generic warning |
 | Threat intel | Walour corpus | GoPlus Security API | — |
 
 Threshold: 3 failures / 60s → circuit opens → 30s cooldown → half-open retry.
@@ -198,7 +197,7 @@ DrainBlockedEvent {
 }
 ```
 
-Aggregated on the public dashboard at `walour.xyz/stats`.
+Aggregated on the public dashboard at `walour.io/stats`.
 
 ---
 

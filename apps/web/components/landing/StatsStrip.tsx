@@ -73,7 +73,7 @@ export default function StatsStrip({
       color: 'accent',
     },
     {
-      value: counts.solSaved.toLocaleString(),
+      value: counts.solSaved.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
       label: 'SOL Kept in Wallets',
       color: 'safe',
     },

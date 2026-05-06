@@ -69,7 +69,7 @@ export default function SiteBackground() {
     }
 
     window.addEventListener('mousemove', onMouseMove);
-    window.addEventListener('mouseleave', onMouseLeave);
+    document.addEventListener('mouseleave', onMouseLeave);
 
     const MAX_DIST = 140;
 
@@ -142,7 +142,7 @@ export default function SiteBackground() {
       cancelAnimationFrame(animId);
       window.removeEventListener('resize', resize);
       window.removeEventListener('mousemove', onMouseMove);
-      window.removeEventListener('mouseleave', onMouseLeave);
+      document.removeEventListener('mouseleave', onMouseLeave);
       resizeObserver.disconnect();
     };
   }, []);

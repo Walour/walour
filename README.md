@@ -182,8 +182,8 @@ ANTHROPIC_API_KEY=          # Claude streaming (tx decoder)
 HELIUS_API_KEY=             # Solana RPC — free tier at helius.dev
 SUPABASE_URL=               # Supabase project URL
 SUPABASE_SERVICE_KEY=       # service_role key (worker needs write access)
-UPSTASH_REDIS_REST_URL=     # Upstash Redis REST URL
-UPSTASH_REDIS_REST_TOKEN=   # Upstash Redis REST token
+UPSTASH_REDIS_URL=          # Upstash Redis REST URL
+UPSTASH_REDIS_TOKEN=        # Upstash Redis REST token
 EXTENSION_ID=               # Your Chrome extension ID (chrome://extensions)
 JUPITER_API_KEY=            # Jupiter API key — powers organic score + audit.isSus checks
                             # Free tier (60 RPM) at portal.jup.ag

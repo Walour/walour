@@ -130,7 +130,7 @@ F-SDK-00 worker
 
 ### 2.4 Walour Oracle (Anchor Program)
 
-On Solana mainnet. Program name: `walour_oracle`.
+On Solana devnet. Program name: `walour_oracle`.
 
 **PDAs:**
 ```
@@ -148,7 +148,7 @@ Reporter PDA
 - `corroborate_report(address)` — public
 - `update_confidence(address, new_score)` — admin multisig only (v1)
 
-Ingestion worker promotes high-confidence Supabase entries to mainnet PDAs on each sync cycle.
+Ingestion worker promotes high-confidence Supabase entries to devnet PDAs on each sync cycle.
 
 ---
 

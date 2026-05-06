@@ -122,7 +122,7 @@ export default function DocsClient() {
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16, flexWrap: 'wrap' }}>
             <Badge>TypeScript</Badge>
             <Badge color="#A855F7">v0.1.0-beta</Badge>
-            <Badge color="#F59E0B">Solana mainnet</Badge>
+            <Badge color="#F59E0B">Solana devnet</Badge>
           </div>
           <h1 className="section-title" style={{ marginBottom: 12 }}>SDK Docs</h1>
           <p style={{ fontSize: 16, color: 'var(--text)', lineHeight: 1.6, maxWidth: 520, marginBottom: 24 }}>

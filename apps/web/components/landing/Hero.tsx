@@ -56,7 +56,7 @@ export default function Hero({ threatsIndexed }: HeroProps) {
             <div style={{ marginBottom: 28 }}>
               <div className={`eyebrow-pill fade-up d1${inClass}`}>
                 <span className="live-dot" />
-                Oracle live on Solana mainnet ·{' '}
+                Oracle live on Solana devnet ·{' '}
                 {threatsIndexed !== undefined
                   ? threatsIndexed.toLocaleString()
                   : '...'}{' '}

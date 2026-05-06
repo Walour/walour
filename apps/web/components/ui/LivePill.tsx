@@ -12,7 +12,7 @@ export default function LivePill() {
       }}
     >
       <span className="live-dot" />
-      Live · Mainnet
+      Live · Devnet
     </div>
   )
 }

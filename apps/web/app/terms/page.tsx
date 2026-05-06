@@ -28,8 +28,8 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   )
 }
 
-function P({ children }: { children: React.ReactNode }) {
-  return <p style={{ marginBottom: 12 }}>{children}</p>
+function P({ children, style }: { children: React.ReactNode; style?: React.CSSProperties }) {
+  return <p style={{ marginBottom: 12, ...style }}>{children}</p>
 }
 
 function UL({ children }: { children: React.ReactNode }) {

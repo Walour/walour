@@ -139,7 +139,9 @@ async function handler(req: Request): Promise<Response> {
     try {
       const nonProgram = resolvedAccounts.filter(k => !KNOWN_PROGRAMS.has(k.toBase58()))
       const hits = await Promise.all(nonProgram.map(k => lookupAddress(k.toBase58())))
-      const first = hits.find(h => h !== null)
+      // Only 'drainer', 'rug', 'phishing_domain' entries flip domain to RED.
+      // 'malicious_token' entries are surfaced via checkTokenRisk's own corpusHit check.
+      const first = hits.find(h => h !== null && h.type !== 'malicious_token')
       if (first) drainerHit = { address: first.address, confidence: first.confidence }
     } catch { /* non-fatal */ }
   }

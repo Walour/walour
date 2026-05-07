@@ -302,10 +302,14 @@ export async function lookupAddress(pubkey: string): Promise<ThreatReport | null
 //
 // L7 — flag only when a single label mixes Latin and non-Latin scripts.
 // Pure non-Latin labels (e.g. an all-Cyrillic domain) are not by themselves
-// a homograph attack. Punycode `xn--` is always flagged because every legit
-// .com/.org Solana brand we whitelist is pure Latin.
-function hasHomoglyphRisk(hostname: string): boolean {
-  if (hostname.includes('xn--')) return true
+// a homograph attack.
+//
+// B4 — pure punycode (`xn--*`) is suspicious but NOT a guaranteed attack:
+// many legitimate IDN registrations (Chinese, Japanese, Arabic business
+// sites) live there. We split the signal:
+//   - mixed-script in a single label  → RED (definitive homograph)
+//   - bare punycode label             → AMBER (verify-before-sign)
+function isMixedScriptHomoglyph(hostname: string): boolean {
   for (const label of hostname.split('.')) {
     let hasLatin = false
     let hasNonLatin = false
@@ -325,11 +329,16 @@ function hasHomoglyphRisk(hostname: string): boolean {
   return false
 }
 
+function hasPunycodeLabel(hostname: string): boolean {
+  return hostname.split('.').some(label => label.startsWith('xn--'))
+}
+
 // ─── Phase 1 hostname heuristics (sync, zero-network, zero-dependency) ───────
 
 // Brand → canonical hostnames. Subdomains of any canonical pass.
 const BRAND_CANONICALS: Record<string, string[]> = {
   walour:   ['walour.io'],
+  solana:   ['solana.com', 'solana.org', 'docs.solana.com', 'explorer.solana.com'],
   phantom:  ['phantom.app', 'phantom.com'],
   solflare: ['solflare.com'],
   backpack: ['backpack.app', 'backpack.exchange'],
@@ -351,9 +360,11 @@ const BRAND_CANONICALS: Record<string, string[]> = {
 
 // TLDs with statistically elevated phishing abuse rates (Spamhaus/Interisle 2024).
 // Used as a soft signal: alone → elevated AMBER; combined with squatting → raises confidence.
+// Includes Freenom free-TLDs (gq/tk/ml/cf/ga) which dominate drainer-phishing telemetry.
 const HIGH_RISK_TLDS = new Set([
   'xyz', 'top', 'click', 'buzz', 'shop', 'live', 'online',
   'site', 'store', 'icu', 'fun', 'vip', 'work', 'cyou',
+  'gq', 'tk', 'ml', 'cf', 'ga',
 ])
 
 // Public hosting platforms that serve user-deployed subdomains.
@@ -452,7 +463,10 @@ async function rdapAgeCheck(hostname: string): Promise<number | null> {
 
 export async function checkDomain(hostname: string): Promise<DomainRiskResult> {
   // M9 — normalize cache key (lowercase + trim).
-  const normalized = hostname.toLowerCase().trim()
+  // B1 — DNS allows a trailing dot (FQDN form, e.g. "phantom.app."); browsers
+  // occasionally emit it. Strip a single trailing dot before any matching so
+  // the canonical-domain fast-path still wins.
+  const normalized = hostname.toLowerCase().trim().replace(/\.$/, '')
   const cacheKey = `domain:risk:${normalized}`
   const cached = await cacheGet<DomainRiskResult>(cacheKey)
   if (cached) return cached
@@ -474,16 +488,22 @@ export async function checkDomain(hostname: string): Promise<DomainRiskResult> {
   }
 
   // DH-06: Fail-fast homoglyph check — definitive IDN homograph signal.
-  if (hasHomoglyphRisk(normalized)) {
+  // Only mixed-script labels (Latin + non-Latin in the same label) are RED
+  // here; pure punycode is handled below as AMBER (B4).
+  if (isMixedScriptHomoglyph(normalized)) {
     const result: DomainRiskResult = {
       level: 'RED',
-      reason: 'Domain contains non-ASCII or Punycode characters. Likely impersonating a known site.',
+      reason: 'Domain mixes Latin and non-Latin characters in the same label. Likely impersonating a known site.',
       confidence: 0.9,
       source: 'walour',
     }
     await cacheSet(cacheKey, result, DOMAIN_TTL)
     return result
   }
+
+  // B4 — pure punycode/IDN label. Suspicious but not definitive: surface as
+  // AMBER so legitimate IDN registrations are not blanket-blocked.
+  const punycode = hasPunycodeLabel(normalized)
 
   // Phase 1 — synchronous hostname heuristics (zero-network).
   const hosting = checkHostingPlatformSquat(normalized)
@@ -549,6 +569,8 @@ export async function checkDomain(hostname: string): Promise<DomainRiskResult> {
     result = { level: 'AMBER', reason: `Domain registered ${days} day${days === 1 ? '' : 's'} ago. Treat with caution.`, confidence: 0.55, source: 'walour-heuristic' }
   } else if (riskTld) {
     result = { level: 'AMBER', reason: `High-risk TLD .${riskTld}. No known threats, but verify before signing.`, confidence: 0.35, source: 'walour-heuristic' }
+  } else if (punycode) {
+    result = { level: 'AMBER', reason: 'Punycode/internationalized domain. Verify the domain matches what you expect before signing.', confidence: 0.5, source: 'walour-heuristic' }
   } else {
     result = { level: 'AMBER', reason: 'No threats detected. Domain unrecognized.', confidence: 0, source: undefined }
   }

@@ -105,8 +105,8 @@ export default function Hero({ threatsIndexed }: HeroProps) {
                 <ChromeIcon />
                 Add to Chrome
               </a>
-              <a href="/registry" className="btn btn-secondary">
-                Browse the Registry
+<a href="/demo" className="btn btn-secondary">
+                Try demo
               </a>
             </div>
           </div>

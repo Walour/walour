@@ -262,6 +262,18 @@ export default function ExtensionPage() {
         </div>
       </section>
 
+      {/* ── Live demo CTA ─────────────────────────────────────────────── */}
+      <section style={{ paddingTop: 56, paddingBottom: 56 }}>
+        <div className="container" style={{ textAlign: 'center' }}>
+          <p style={{ color: 'var(--text-muted)', fontSize: 15, marginBottom: 20 }}>
+            See it in action before you install.
+          </p>
+          <a href="/demo" className="btn btn-primary" style={{ fontSize: 15, padding: '12px 28px' }}>
+            Try the live demo
+          </a>
+        </div>
+      </section>
+
       <Divider />
 
       {/* ── What it detects ───────────────────────────────────────────── */}

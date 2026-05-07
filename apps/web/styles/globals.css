@@ -1381,6 +1381,9 @@ td.col-date { white-space: nowrap; color: var(--text-muted); }
   0%   { top: -2px; }
   100% { top: 100%; }
 }
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
 
 /* ---------- Hero enhancements ---------- */
 .hero-two-col {

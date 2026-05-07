@@ -9,21 +9,67 @@
     "activeTab"
   ],
   "host_permissions": [
-    "<all_urls>"
+    "https://jup.ag/*",
+    "https://raydium.io/*",
+    "https://orca.so/*",
+    "https://drift.trade/*",
+    "https://app.marinade.finance/*",
+    "https://app.marginfi.com/*",
+    "https://app.kamino.finance/*",
+    "https://phantom.app/*",
+    "https://solflare.com/*",
+    "https://www.backpack.app/*",
+    "https://magiceden.io/*",
+    "https://www.tensor.trade/*",
+    "http://localhost:*/*",
+    "http://127.0.0.1:*/*"
   ],
+  "externally_connectable": {
+    "ids": []
+  },
   "background": {
     "service_worker": "background.js",
     "type": "module"
   },
   "content_scripts": [
     {
-      "matches": ["<all_urls>"],
+      "matches": [
+        "https://jup.ag/*",
+        "https://raydium.io/*",
+        "https://orca.so/*",
+        "https://drift.trade/*",
+        "https://app.marinade.finance/*",
+        "https://app.marginfi.com/*",
+        "https://app.kamino.finance/*",
+        "https://phantom.app/*",
+        "https://solflare.com/*",
+        "https://www.backpack.app/*",
+        "https://magiceden.io/*",
+        "https://www.tensor.trade/*",
+        "http://localhost:*/*",
+        "http://127.0.0.1:*/*"
+      ],
       "js": ["content.js"],
       "run_at": "document_start",
       "world": "MAIN"
     },
     {
-      "matches": ["<all_urls>"],
+      "matches": [
+        "https://jup.ag/*",
+        "https://raydium.io/*",
+        "https://orca.so/*",
+        "https://drift.trade/*",
+        "https://app.marinade.finance/*",
+        "https://app.marginfi.com/*",
+        "https://app.kamino.finance/*",
+        "https://phantom.app/*",
+        "https://solflare.com/*",
+        "https://www.backpack.app/*",
+        "https://magiceden.io/*",
+        "https://www.tensor.trade/*",
+        "http://localhost:*/*",
+        "http://127.0.0.1:*/*"
+      ],
       "js": ["bridge.js"],
       "run_at": "document_start",
       "world": "ISOLATED"

@@ -251,8 +251,17 @@ function wireIdle(): void {
       if (btn) btn.disabled = true
 
       try {
+        // Mirror background.ts isValidApiBase — reject any apiBase value
+        // that wasn't written by us / doesn't look like a real origin.
+        const VALID_API_BASE = /^https:\/\/[a-z0-9.-]+(?::\d+)?$/i
+        const VALID_DEV_API_BASE = /^http:\/\/localhost:\d+$/
+        const isValidApiBase = (s: unknown): s is string =>
+          typeof s === 'string' && (VALID_API_BASE.test(s) || VALID_DEV_API_BASE.test(s))
         const apiBase = await new Promise<string>(resolve =>
-          chrome.storage.sync.get(['apiBase'], r => resolve((r['apiBase'] as string) || __API_BASE__))
+          chrome.storage.sync.get(['apiBase'], r => {
+            const v = r['apiBase']
+            resolve(isValidApiBase(v) ? v : __API_BASE__)
+          })
         )
         const res = await fetch(`${apiBase}/api/scan?hostname=${encodeURIComponent(q)}`)
         const data = res.ok ? await res.json() : null

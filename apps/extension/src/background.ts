@@ -60,7 +60,9 @@ function updateBadge(tabId: number, level: ScanResult['level']): void {
   }
   const { text, color } = badge[level]
   chrome.action.setBadgeText({ text, tabId })
-  if (text) chrome.action.setBadgeBackgroundColor({ color, tabId })
+  // Always set the color so a transition from a non-empty state (e.g. RED)
+  // back to an empty state (e.g. GREEN) doesn't leave the previous color sticking.
+  chrome.action.setBadgeBackgroundColor({ color, tabId })
 }
 
 function setLastScan(tabId: number, partial: Partial<ScanResult> & { hostname?: string }): void {
@@ -88,13 +90,16 @@ function setLastScan(tabId: number, partial: Partial<ScanResult> & { hostname?: 
 }
 
 function deriveLevel(domain: ScanResult['domain'], token: ScanResult['token']): ScanResult['level'] {
+  // Worker normalizes risk strings to GREEN|AMBER|RED before they reach here.
+  // The earlier HIGH/CRITICAL/MEDIUM/WARN/LOW/SAFE branches were dead code
+  // — kept only to mask sloppy upstream contracts. Trim to the canonical set.
   const vals = [
     (domain as any)?.level, (domain as any)?.risk,
     (token as any)?.level,  (token as any)?.risk,
   ].filter(Boolean) as string[]
-  if (vals.some(v => ['RED','HIGH','CRITICAL'].includes(v))) return 'RED'
-  if (vals.some(v => ['AMBER','MEDIUM','WARN'].includes(v))) return 'AMBER'
-  if (vals.some(v => ['GREEN','LOW','SAFE'].includes(v))) return 'GREEN'
+  if (vals.some(v => v === 'RED')) return 'RED'
+  if (vals.some(v => v === 'AMBER')) return 'AMBER'
+  if (vals.some(v => v === 'GREEN')) return 'GREEN'
   return 'UNKNOWN'
 }
 
@@ -111,10 +116,21 @@ function deriveConfidence(domain: ScanResult['domain'], token: ScanResult['token
   return level === 'RED' ? 0.85 : level === 'AMBER' ? 0.55 : level === 'GREEN' ? 0.75 : 0
 }
 
+// Reject anything that doesn't look like an https origin (or a localhost dev origin).
+// This is the boundary that turns a stored string into a fetch target — if a
+// page or another extension manages to write to chrome.storage.sync.apiBase,
+// we still won't fetch from a hostile URL.
+const VALID_API_BASE = /^https:\/\/[a-z0-9.-]+(?::\d+)?$/i
+const VALID_DEV_API_BASE = /^http:\/\/localhost:\d+$/
+function isValidApiBase(s: unknown): s is string {
+  return typeof s === 'string' && (VALID_API_BASE.test(s) || VALID_DEV_API_BASE.test(s))
+}
+
 function getApiBase(): Promise<string> {
   return new Promise((resolve) => {
     chrome.storage.sync.get(['apiBase'], (result) => {
-      resolve((result['apiBase'] as string) || DEFAULT_API_BASE)
+      const v = result['apiBase']
+      resolve(isValidApiBase(v) ? v : DEFAULT_API_BASE)
     })
   })
 }
@@ -294,6 +310,14 @@ chrome.runtime.onMessage.addListener((msg: IncomingMessage, sender) => {
 })
 
 chrome.runtime.onConnect.addListener((port) => {
+  // Reject any port not originated by our own extension. With
+  // externally_connectable.ids = [], Chrome should already block external
+  // connections, but a defense-in-depth check costs us nothing.
+  if (port.sender?.id !== chrome.runtime.id) {
+    try { port.disconnect() } catch { /* already gone */ }
+    return
+  }
+
   if (port.name === 'walour-popup') {
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
       const tabId = tabs[0]?.id

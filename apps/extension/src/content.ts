@@ -47,9 +47,11 @@ if (typeof (window as any).__walour_content_injected === 'undefined') {
   }
 
   function interceptWallet(wallet: WalletProvider): void {
-    // Re-check every call — Phantom re-injects and overwrites our hook
-    if ((wallet.signTransaction as any)?.__walour_intercepted) return
-
+    // Re-check every call independently for each method — Phantom re-injects and
+    // overwrites our hook, and a wallet may expose only one of the two methods.
+    const signAlready = (wallet.signTransaction as any)?.__walour_intercepted === true
+    const sendAlready = (wallet.signAndSendTransaction as any)?.__walour_intercepted === true
+    if (signAlready && sendAlready) return
 
     const originalSign = wallet.signTransaction?.bind(wallet)
     const originalSignAndSend = wallet.signAndSendTransaction?.bind(wallet)
@@ -61,6 +63,15 @@ if (typeof (window as any).__walour_content_injected === 'undefined') {
 
       return function interceptedCall(tx: any, opts?: any): Promise<any> {
         return new _origPromise((resolve, reject) => {
+          // TOCTOU guard: capture a bound reference to the page's serializer at
+          // intercept time, so the comparison at decision time uses the same
+          // function we used to compute txBase64. The page can swap
+          // tx.message.serialize between calls.
+          const _freezedSerialize: ((...args: any[]) => Uint8Array) | undefined =
+            typeof tx?.message?.serialize === 'function'
+              ? tx.message.serialize.bind(tx.message)
+              : undefined
+
           let txBase64: string
           try {
             txBase64 = serializeTx(tx)
@@ -122,18 +133,36 @@ if (typeof (window as any).__walour_content_injected === 'undefined') {
             window.removeEventListener('message', onBridgeMessage)
             hideOverlay()
             if (allow) {
-              // TOCTOU guard: re-serialize at decision time.
-              // If the page mutated tx after we scanned it, bytes will differ — reject.
+              // TOCTOU guard: re-serialize at decision time using the bound
+              // reference captured at intercept time (so a swapped serializer
+              // on the page can't trick us into comparing a different function).
               let currentBytes: string | null = null
-              try { currentBytes = serializeTx(tx) } catch { /* ignore — can't compare */ }
+              try {
+                if (_freezedSerialize) {
+                  const bytes = _freezedSerialize()
+                  const CHUNK = 8192
+                  let binary = ''
+                  for (let i = 0; i < bytes.byteLength; i += CHUNK) {
+                    binary += String.fromCharCode(...bytes.subarray(i, i + CHUNK))
+                  }
+                  currentBytes = btoa(binary)
+                } else {
+                  currentBytes = serializeTx(tx)
+                }
+              } catch { /* ignore — can't compare */ }
               if (currentBytes !== null && currentBytes !== txBase64) {
                 reject(new Error('Walour: transaction was modified after security check — blocked'))
                 return
               }
               originalFn(tx, opts).then(resolve).catch(reject)
             } else {
+              // Telemetry envelope: own UUID so it conforms to bridge's reqId
+              // regex /^[a-z0-9-]{1,64}$/. Inner event still references the
+              // originating scan via event_id = reqId.
               window.postMessage({
-                __walour_req: true, reqId: reqId + '_tel', type: 'TELEMETRY',
+                __walour_req: true,
+                reqId: crypto.randomUUID(),
+                type: 'TELEMETRY',
                 event: {
                   event_id: reqId,
                   timestamp: Date.now(),
@@ -144,25 +173,27 @@ if (typeof (window as any).__walour_content_injected === 'undefined') {
                   surface: 'extension',
                   app_version: '0.1.0',
                 }
-              }, '*')
+              }, window.location.origin)
               reject(new Error('Walour: transaction blocked by user'))
             }
           })
 
-          // Send to bridge (isolated world content script)
-          window.postMessage({ __walour_req: true, reqId, type: 'SCAN_TX', txBase64, hostname }, '*')
+          // Send to bridge (isolated world content script).
+          // Bridge runs in the ISOLATED world of this same page; window.location.origin
+          // pins delivery to the same browsing context and rejects cross-origin frames.
+          window.postMessage({ __walour_req: true, reqId, type: 'SCAN_TX', txBase64, hostname }, window.location.origin)
         })
       }
     }
 
-    if (originalSign) {
+    if (originalSign && !signAlready) {
       const intercepted = createInterceptedCall(originalSign) as any
       intercepted.__walour_intercepted = true
       try {
         Object.defineProperty(wallet, 'signTransaction', { value: intercepted, writable: true, configurable: true })
       } catch { wallet.signTransaction = intercepted }
     }
-    if (originalSignAndSend) {
+    if (originalSignAndSend && !sendAlready) {
       const intercepted = createInterceptedCall(originalSignAndSend) as any
       intercepted.__walour_intercepted = true
       try {
@@ -246,11 +277,41 @@ if (typeof (window as any).__walour_content_injected === 'undefined') {
     document.addEventListener('DOMContentLoaded', tryHookWallets, { once: true })
   }
 
-  // Poll for late-injected wallets (e.g., extension wallets that inject after navigation)
-  let attempts = 0
-  const MAX_ATTEMPTS = 20
-  const interval = setInterval(() => {
+  // Replace setInterval poll with a MutationObserver — observes documentElement
+  // for child-list/subtree changes so we re-hook only when the page actually
+  // mutates (e.g., when a wallet extension injects a script tag). The 30s
+  // safety cap ensures we don't observe the page forever; once all known
+  // accessors return a wallet object we disconnect early.
+  //
+  // Dependency note: WALLET_ACCESSORS still reads `window.phantom?.solana`,
+  // `window.solflare`, `window.backpack?.solana`. The observer only triggers
+  // re-hook attempts; the actual wallet reads happen synchronously on `window`.
+  const _observer = new MutationObserver(() => {
     tryHookWallets()
-    if (++attempts >= MAX_ATTEMPTS) clearInterval(interval)
-  }, 500)
+    let allHooked = true
+    for (const accessor of WALLET_ACCESSORS) {
+      try {
+        const w = accessor()
+        if (!w || (w.signTransaction && !(w.signTransaction as any).__walour_intercepted)) {
+          allHooked = false
+          break
+        }
+        if (!w.signTransaction && !w.signAndSendTransaction) {
+          allHooked = false
+          break
+        }
+      } catch {
+        allHooked = false
+        break
+      }
+    }
+    if (allHooked) {
+      try { _observer.disconnect() } catch { /* ignore */ }
+    }
+  })
+  try {
+    _observer.observe(document.documentElement, { childList: true, subtree: true })
+  } catch { /* documentElement not yet available — DOMContentLoaded will retry hooks */ }
+  // 30s safety cap
+  setTimeout(() => { try { _observer.disconnect() } catch { /* ignore */ } }, 30_000)
 }

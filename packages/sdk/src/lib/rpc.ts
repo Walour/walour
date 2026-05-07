@@ -7,6 +7,37 @@ export interface RpcEndpoint {
 
 let _warned = false
 
+/**
+ * Oracle-program RPC. The walour_oracle program lives on devnet for now
+ * (deploy target per Anchor.toml [programs.devnet]). Reading PDAs via the
+ * mainnet market-data RPC silently returns `null`, which the audit flagged
+ * as a footgun (H8 / oracle-cluster split).
+ *
+ * Override with `WALOUR_ORACLE_CLUSTER=mainnet` once the program is
+ * deployed there. `WALOUR_ORACLE_RPC_URL` lets ops override the URL
+ * entirely (e.g. a dedicated devnet RPC) without touching code.
+ *
+ * IMPORTANT: do NOT route market-data calls (tx decode, ALT, mint
+ * metadata) through this — those still go via `withRpcFallback()` to
+ * mainnet.
+ */
+export function getOracleConnection(): Connection {
+  const explicit = process.env.WALOUR_ORACLE_RPC_URL
+  if (explicit && explicit.length > 0) {
+    return new Connection(explicit, 'confirmed')
+  }
+  const cluster = process.env.WALOUR_ORACLE_CLUSTER ?? 'devnet'
+  if (cluster === 'mainnet') {
+    const heliusKey = process.env.HELIUS_API_KEY
+    const url = heliusKey
+      ? `https://mainnet.helius-rpc.com/?api-key=${heliusKey}`
+      : 'https://api.mainnet-beta.solana.com'
+    return new Connection(url, 'confirmed')
+  }
+  // Default: devnet public RPC. Cheap & stable for low-volume PDA reads.
+  return new Connection('https://api.devnet.solana.com', 'confirmed')
+}
+
 export function getRpcEndpoints(): RpcEndpoint[] {
   const heliusKey = process.env.HELIUS_API_KEY
   const tritonKey = process.env.TRITON_KEY

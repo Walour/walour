@@ -13,8 +13,12 @@ export function isOpen(name: string): boolean {
   const s = state.get(name)
   if (!s?.openedAt) return false
   if (Date.now() - s.openedAt > TIMEOUT_MS) {
-    // half-open: allow one retry
+    // M8 — half-open: allow one retry. Pre-arm `failures` to THRESHOLD-1
+    // so a single failure during the probe re-opens immediately instead
+    // of giving the failing endpoint another two free swings.
     s.openedAt = null
+    s.failures = THRESHOLD - 1
+    s.firstFailureAt = Date.now()
     return false
   }
   return true

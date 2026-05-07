@@ -7,6 +7,7 @@ import decodeHandler from './decode'
 import blinkHandler from './blink'
 import ingestHandler from './ingest'
 import purgeHandler from './purge'
+import promoteHandler from './promote'
 import simulateHandler from './simulate'
 import mobileBlockedHandler from './mobile-blocked'
 import mobileScanHandler from './mobile-scan'
@@ -26,6 +27,7 @@ const routes: Record<string, AnyHandler> = {
   '/api/blink': blinkHandler,
   '/api/ingest': ingestHandler,
   '/api/purge': purgeHandler,
+  '/api/promote': promoteHandler,
   '/api/simulate': simulateHandler,
   '/api/mobile/blocked': mobileBlockedHandler,
   '/api/mobile/scan': mobileScanHandler,
@@ -103,7 +105,8 @@ server.listen(PORT, () => {
   console.log('  POST /api/decode   { txBase64: string }')
   console.log('  GET  /api/blink?address=<pubkey>')
   console.log('  POST /api/ingest')
-  console.log('  POST /api/purge')
+  console.log('  POST /api/purge   (Bearer WALOUR_CRON_SECRET)')
+  console.log('  GET  /api/promote (Bearer WALOUR_CRON_SECRET)')
   console.log('  POST /api/simulate  { txBase64: string, signerPubkey?: string }')
   console.log('  POST /api/mobile/blocked')
   console.log('  POST /api/mobile/scan')

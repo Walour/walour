@@ -12,7 +12,10 @@ const SOURCE_WEIGHTS: Record<string, number> = {
   scam_sniffer: 0.85,
   goplus: 0.8,
   community: 0.4,
-  twitter: 0.3,
+  // M18: Twitter is unreliable as a primary source — addresses extracted from
+  // tweet text are easily injected. Down-weighted to 0.05 so it can only
+  // corroborate, not flag on its own.
+  twitter: 0.05,
 }
 
 // Solana base58 alphabet excludes 0, O, I, l
@@ -95,8 +98,11 @@ function withTimeout(promise: Promise<Response>, ms: number): Promise<Response> 
 // 3. api.scamsniffer.io fallback
 // ---------------------------------------------------------------------------
 
-// ScamSniffer all.json — contains 4k+ EVM addresses + 345k phishing domains
-const SCAM_SNIFFER_ALL_URL = 'https://raw.githubusercontent.com/scamsniffer/scam-database/main/blacklist/all.json'
+// ScamSniffer all.json — contains 4k+ EVM addresses + 345k phishing domains.
+// L11: pinned to a specific commit SHA so an upstream master-branch compromise
+// (or breaking schema change) cannot silently poison our ingest pipeline.
+// To update: replace SHA with output of: curl https://api.github.com/repos/scamsniffer/scam-database/commits/main | jq -r .sha
+const SCAM_SNIFFER_ALL_URL = 'https://raw.githubusercontent.com/scamsniffer/scam-database/7eb7b2669ef0d12e54ea10e4da76113644bc6402/blacklist/all.json'
 const SCAM_SNIFFER_DOMAIN_LIMIT = 60_000 // raised from 10k — full list is ~50k domains
 
 async function fetchScamSniffer(): Promise<RawEntry[]> {
@@ -227,10 +233,14 @@ async function fetchTwitter(): Promise<RawEntry[]> {
 
   const rawEntries: RawEntry[] = []
 
+  // M17: cap matches per tweet to 3 — a single tweet listing dozens of
+  // addresses is almost certainly a spam/listing post, not a credible report.
+  const MAX_ADDRESSES_PER_TWEET = 3
+
   for (const tweet of data?.data ?? []) {
     const text = tweet.text ?? ''
     // Extract Solana addresses from tweet text using the base58 regex
-    const addressMatches = text.match(/[1-9A-HJ-NP-Za-km-z]{32,44}/g) ?? []
+    const addressMatches = (text.match(/[1-9A-HJ-NP-Za-km-z]{32,44}/g) ?? []).slice(0, MAX_ADDRESSES_PER_TWEET)
     for (const address of addressMatches) {
       if (address.length < 32) continue
       const evidenceUrl = tweet.entities?.urls?.[0]?.expanded_url ?? null
@@ -380,8 +390,14 @@ async function runSource(
 // ---------------------------------------------------------------------------
 
 import { adaptForVercel } from './lib/adapt'
+import { verifyCronSecret } from './lib/cron-auth'
 
-async function handler(_req: Request): Promise<Response> {
+async function handler(req: Request): Promise<Response> {
+  // H16: cron-class auth — ingest writes to Supabase with the service-role key
+  // and must not be callable by unauthenticated clients.
+  const auth = verifyCronSecret(req)
+  if (!auth.ok) return auth.response!
+
   const start = Date.now()
 
   const supabase = createClient<Database>(

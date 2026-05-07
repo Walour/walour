@@ -14,6 +14,8 @@ import {
 } from '@solana/web3.js'
 import * as anchor from '@coral-xyz/anchor'
 import { adaptForVercel } from './lib/adapt'
+import { verifyCronSecret } from './lib/cron-auth'
+import { safeError } from './lib/safe-error'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -102,9 +104,14 @@ const PROMOTE_IDL = {
 async function handler(
   req: Request
 ): Promise<Response> {
-  if (req.method !== 'GET') {
-    return new Response('Method Not Allowed', { status: 405 })
+  // Cron job — accept GET (Vercel cron default) and POST. Reject everything else.
+  if (req.method !== 'GET' && req.method !== 'POST') {
+    return new Response('Method Not Allowed', { status: 405, headers: { 'Allow': 'GET, POST' } })
   }
+
+  // M21: cron-class auth — same gate as /api/purge.
+  const auth = verifyCronSecret(req)
+  if (!auth.ok) return auth.response!
 
   const startMs = Date.now()
 
@@ -212,7 +219,8 @@ async function handler(
       promoted++
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err)
-      console.error(`[promote] Failed to promote ${row.address}:`, msg)
+      // Full detail to server logs only; client never sees this.
+      safeError(err, 'promote-row-failed')
 
       // Log to outages table — non-blocking
       await supabase.from('outages').insert({

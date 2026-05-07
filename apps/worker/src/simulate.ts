@@ -1,5 +1,7 @@
 import { Connection, VersionedTransaction } from '@solana/web3.js'
 import { cacheGet, cacheSet } from '@walour/sdk/lib/cache'
+import { enforceRateLimit, clientIpFrom, rateLimitedResponse } from './lib/rate-limit'
+import { safeError } from './lib/safe-error'
 
 export const config = { runtime: 'edge' }
 
@@ -10,6 +12,11 @@ export interface SimDelta {
   decimals: number
   uiChange: string    // formatted: "+0.5" or "-1000"
 }
+
+// H13: hard ceiling on body size.
+const MAX_BODY_BYTES = 64 * 1024
+// M14: txBase64 length cap.
+const MAX_TX_BASE64_LEN = 100_000
 
 async function getTokenSymbol(mint: string): Promise<string | undefined> {
   const cacheKey = `token:meta:${mint}`
@@ -37,7 +44,9 @@ async function getTokenSymbol(mint: string): Promise<string | undefined> {
     if (!data?.symbol) return undefined
     await cacheSet(cacheKey, { symbol: data.symbol }, 3_600)
     return data.symbol
-  } catch {
+  } catch (err) {
+    // M16: log full detail; client-side path doesn't see this error directly.
+    safeError(err, 'token-symbol-lookup-failed')
     return undefined
   }
 }
@@ -47,6 +56,7 @@ export interface SimResult {
   solChangeLamports: number
   deltas: SimDelta[]
   error?: string
+  cluster?: 'mainnet' | 'devnet'
 }
 
 function getConnection(cluster: 'mainnet' | 'devnet' = 'mainnet'): Connection {
@@ -71,6 +81,27 @@ async function handler(req: Request): Promise<Response> {
     })
   }
 
+  // H3: per-IP rate limit — 10 requests/minute. Simulate hits Helius RPC, so
+  // it's a more expensive route than scan.
+  const ip = clientIpFrom({
+    headers: Object.fromEntries(req.headers.entries()),
+    socket: undefined,
+  })
+  const rl = await enforceRateLimit('simulate', ip, 10, 60)
+  if (!rl.ok) return rateLimitedResponse(rl.retryAfter, corsHeaders)
+
+  // H13: body size cap.
+  const contentLength = parseInt(req.headers.get('content-length') ?? '0', 10)
+  if (contentLength >= MAX_BODY_BYTES) {
+    return new Response(JSON.stringify({ error: 'request body too large' }), {
+      status: 413, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    })
+  }
+
+  // H14: caller opts in to devnet via ?cluster=devnet. We never auto-pivot.
+  const url = new URL(req.url, 'http://localhost')
+  const requestedCluster = url.searchParams.get('cluster') === 'devnet' ? 'devnet' : 'mainnet'
+
   try {
     const { txBase64, signerPubkey } = await req.json() as { txBase64: string; signerPubkey?: string }
     if (!txBase64) {
@@ -78,28 +109,35 @@ async function handler(req: Request): Promise<Response> {
         status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
+    // M14: explicit length cap.
+    if (txBase64.length > MAX_TX_BASE64_LEN) {
+      return new Response(JSON.stringify({ success: false, error: 'txBase64 too long' }), {
+        status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
 
     const txBytes = Buffer.from(txBase64, 'base64')
     const tx = VersionedTransaction.deserialize(txBytes)
 
-    // Try mainnet first, auto-fall back to devnet if simulation errors
-    let sim = await getConnection('mainnet').simulateTransaction(tx, {
+    // H14: simulate strictly on the requested cluster. No silent devnet fallback.
+    const sim = await getConnection(requestedCluster).simulateTransaction(tx, {
       replaceRecentBlockhash: true,
       commitment: 'confirmed',
     })
 
     if (sim.value.err) {
-      const devSim = await getConnection('devnet').simulateTransaction(tx, {
-        replaceRecentBlockhash: true,
-        commitment: 'confirmed',
-      })
-      if (!devSim.value.err) sim = devSim
-    }
-
-    if (sim.value.err) {
-      return new Response(JSON.stringify({ success: false, error: JSON.stringify(sim.value.err), solChangeLamports: 0, deltas: [] }), {
-        status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      })
+      // M16: log full simulator error server-side; return a stable shape to the client.
+      console.warn('[simulate] simulation returned error', { cluster: requestedCluster, err: sim.value.err })
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: 'simulation failed',
+          cluster: requestedCluster,
+          solChangeLamports: 0,
+          deltas: [],
+        }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
     }
 
     // SOL delta: postBalances[0] - preBalances[0] (negative = spending SOL)
@@ -148,15 +186,22 @@ async function handler(req: Request): Promise<Response> {
       })
     )
 
-    const result: SimResult = { success: true, solChangeLamports, deltas }
+    const result: SimResult = { success: true, solChangeLamports, deltas, cluster: requestedCluster }
     return new Response(JSON.stringify(result), {
       status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err)
-    return new Response(JSON.stringify({ success: false, error: msg, solChangeLamports: 0, deltas: [] }), {
-      status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    })
+    // M15: never echo raw exception messages to the client.
+    return new Response(
+      JSON.stringify({
+        success: false,
+        error: safeError(err, 'simulation failed'),
+        cluster: requestedCluster,
+        solChangeLamports: 0,
+        deltas: [],
+      }),
+      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    )
   }
 }
 

@@ -1,6 +1,8 @@
 import { VersionedTransaction } from '@solana/web3.js'
 import { decodeTransaction } from '@walour/sdk'
 import { adaptForVercel } from './lib/adapt'
+import { enforceRateLimit, clientIpFrom, rateLimitedResponse } from './lib/rate-limit'
+import { safeError } from './lib/safe-error'
 
 const ALLOWED_ORIGIN =
   process.env.NODE_ENV === 'development' ? '*' : 'chrome-extension://*'
@@ -11,6 +13,13 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'Content-Type',
 }
 
+// H12: hard ceiling on request body size — anything larger than 64 KB is
+// rejected before the JSON parser runs.
+const MAX_BODY_BYTES = 64 * 1024
+
+// M14: txBase64 itself is capped at 100k chars (matches extension bridge).
+const MAX_TX_BASE64_LEN = 100_000
+
 async function handler(req: Request): Promise<Response> {
   if (req.method === 'OPTIONS') {
     return new Response(null, { status: 200, headers: corsHeaders })
@@ -19,6 +28,23 @@ async function handler(req: Request): Promise<Response> {
   if (req.method !== 'POST') {
     return new Response(JSON.stringify({ error: 'Method not allowed' }), {
       status: 405,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    })
+  }
+
+  // H3: per-IP rate limit — 10 requests/minute (decode is the most expensive route).
+  const ip = clientIpFrom({
+    headers: Object.fromEntries(req.headers.entries()),
+    socket: undefined,
+  })
+  const rl = await enforceRateLimit('decode', ip, 10, 60)
+  if (!rl.ok) return rateLimitedResponse(rl.retryAfter, corsHeaders)
+
+  // H12: reject oversized bodies via Content-Length before reading.
+  const contentLength = parseInt(req.headers.get('content-length') ?? '0', 10)
+  if (contentLength >= MAX_BODY_BYTES) {
+    return new Response(JSON.stringify({ error: 'request body too large' }), {
+      status: 413,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
   }
@@ -33,8 +59,15 @@ async function handler(req: Request): Promise<Response> {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
-  } catch {
-    return new Response(JSON.stringify({ error: 'Invalid JSON body' }), {
+    // M14: explicit length cap on the base64 string (defense in depth).
+    if (txBase64.length > MAX_TX_BASE64_LEN) {
+      return new Response(JSON.stringify({ error: 'txBase64 too long' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+  } catch (err) {
+    return new Response(JSON.stringify({ error: safeError(err, 'invalid JSON body') }), {
       status: 400,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
@@ -44,8 +77,8 @@ async function handler(req: Request): Promise<Response> {
   try {
     const txBytes = Buffer.from(txBase64, 'base64')
     tx = VersionedTransaction.deserialize(txBytes)
-  } catch {
-    return new Response(JSON.stringify({ error: 'Failed to deserialize transaction' }), {
+  } catch (err) {
+    return new Response(JSON.stringify({ error: safeError(err, 'failed to deserialize transaction') }), {
       status: 400,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
@@ -63,9 +96,10 @@ async function handler(req: Request): Promise<Response> {
         }
         controller.enqueue(encoder.encode('data: [DONE]\n\n'))
       } catch (err) {
-        const errMsg = err instanceof Error ? err.message : 'Stream error'
+        // M15: log the real error server-side, send only a generic message to the client.
+        const generic = safeError(err, 'stream error')
         controller.enqueue(
-          encoder.encode(`data: ${JSON.stringify({ error: errMsg })}\n\n`)
+          encoder.encode(`data: ${JSON.stringify({ error: generic })}\n\n`)
         )
         controller.enqueue(encoder.encode('data: [DONE]\n\n'))
       } finally {

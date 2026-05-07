@@ -1,6 +1,8 @@
 import { Connection, VersionedTransaction, PublicKey } from '@solana/web3.js'
 import { checkDomain, checkTokenRisk, lookupAddress } from '@walour/sdk'
 import { adaptForVercel } from './lib/adapt'
+import { enforceRateLimit, clientIpFrom, rateLimitedResponse } from './lib/rate-limit'
+import { safeError } from './lib/safe-error'
 
 // Known program IDs to exclude from mint detection
 const KNOWN_PROGRAMS = new Set([
@@ -11,6 +13,20 @@ const KNOWN_PROGRAMS = new Set([
   'ComputeBudget111111111111111111111111111111',
   'JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4',
 ])
+
+// M13: production must have EXTENSION_ID set so CORS isn't wide-open.
+// Dev (NODE_ENV !== 'production') is allowed to skip — uses '*' below.
+if (process.env.NODE_ENV === 'production' && !process.env.EXTENSION_ID) {
+  throw new Error('EXTENSION_ID required in production')
+}
+
+// H11: hostname validation — limit to ASCII letters, digits, dots, hyphens, underscores.
+// Anything else (script tags, slashes, query strings) is rejected up front.
+const HOSTNAME_RE = /^[A-Za-z0-9._-]+$/
+
+// M12: cap fan-out so a malicious tx with 200 accounts can't fan out 200
+// `lookupAddress` calls per request.
+const MAX_LOOKUP_ACCOUNTS = 32
 
 function getConnection(): Connection {
   return new Connection(
@@ -105,12 +121,21 @@ async function handler(req: Request): Promise<Response> {
     })
   }
 
+  // H3: per-IP rate limit on /api/scan — 30 requests/minute.
+  const ip = clientIpFrom({
+    headers: Object.fromEntries(req.headers.entries()),
+    socket: undefined,
+  })
+  const rl = await enforceRateLimit('scan', ip, 30, 60)
+  if (!rl.ok) return rateLimitedResponse(rl.retryAfter, corsHeaders)
+
   const url = new URL(req.url, "http://localhost")
   const hostname = url.searchParams.get('hostname')
   const txParam = url.searchParams.get('tx')
 
-  if (!hostname || hostname.trim() === '') {
-    return new Response(JSON.stringify({ error: 'hostname is required' }), {
+  // H11: strict hostname validation. Reject empty, too-long, or unsafe chars.
+  if (!hostname || hostname.length > 256 || !HOSTNAME_RE.test(hostname)) {
+    return new Response(JSON.stringify({ error: 'invalid hostname' }), {
       status: 400,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
@@ -135,15 +160,25 @@ async function handler(req: Request): Promise<Response> {
 
   // Check all non-program tx accounts against the threat corpus
   let drainerHit: { address: string; confidence: number } | null = null
+  let tooManyAccounts = false
   if (resolvedAccounts) {
     try {
       const nonProgram = resolvedAccounts.filter(k => !KNOWN_PROGRAMS.has(k.toBase58()))
-      const hits = await Promise.all(nonProgram.map(k => lookupAddress(k.toBase58())))
-      // Only 'drainer', 'rug', 'phishing_domain' entries flip domain to RED.
-      // 'malicious_token' entries are surfaced via checkTokenRisk's own corpusHit check.
-      const first = hits.find(h => h !== null && h.type !== 'malicious_token')
-      if (first) drainerHit = { address: first.address, confidence: first.confidence }
-    } catch { /* non-fatal */ }
+      // M12: fan-out cap. A tx with > MAX_LOOKUP_ACCOUNTS non-program accounts
+      // is treated as RED outright — both because it suggests a complex
+      // multi-step drainer and because we won't fan out that many lookups.
+      if (nonProgram.length > MAX_LOOKUP_ACCOUNTS) {
+        tooManyAccounts = true
+      } else {
+        const hits = await Promise.all(nonProgram.map(k => lookupAddress(k.toBase58())))
+        // Only 'drainer', 'rug', 'phishing_domain' entries flip domain to RED.
+        // 'malicious_token' entries are surfaced via checkTokenRisk's own corpusHit check.
+        const first = hits.find(h => h !== null && h.type !== 'malicious_token')
+        if (first) drainerHit = { address: first.address, confidence: first.confidence }
+      }
+    } catch (err) {
+      safeError(err, 'lookup-fan-out-failed')
+    }
   }
 
   const [domainResult, tokenResult] = await Promise.all([
@@ -151,15 +186,25 @@ async function handler(req: Request): Promise<Response> {
     mintAddress ? checkTokenRisk(mintAddress) : Promise.resolve(null),
   ])
 
-  // If a tx account is a known drainer, upgrade domain result to RED
-  const finalDomain = drainerHit
-    ? {
-        level: 'RED',
-        reason: `Transaction destination ${drainerHit.address.slice(0, 8)}... is a known threat (confidence ${Math.round(drainerHit.confidence * 100)}%)`,
-        confidence: drainerHit.confidence,
-        source: 'corpus',
-      }
-    : domainResult
+  // M12: explicit too-many-accounts response — RED with no further work needed.
+  let finalDomain
+  if (tooManyAccounts) {
+    finalDomain = {
+      level: 'RED',
+      reason: 'Transaction touches too many accounts to safely analyze',
+      confidence: 0.9,
+      source: 'corpus',
+    }
+  } else if (drainerHit) {
+    finalDomain = {
+      level: 'RED',
+      reason: `Transaction destination ${drainerHit.address.slice(0, 8)}... is a known threat (confidence ${Math.round(drainerHit.confidence * 100)}%)`,
+      confidence: drainerHit.confidence,
+      source: 'corpus',
+    }
+  } else {
+    finalDomain = domainResult
+  }
 
   const responseBody: Record<string, unknown> = { domain: finalDomain, token: tokenResult }
   if (altWarning) responseBody.altWarning = true

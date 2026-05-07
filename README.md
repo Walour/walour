@@ -273,6 +273,47 @@ All functions are cache-first (Upstash Redis) and circuit-breakered. An outage a
 
 ---
 
+## Security
+
+Walour is a security product, so its own posture is published.
+
+**Threat model:** the SDK and extension sit in the wallet-signing critical path; the worker pays for AI/RPC/threat-intel calls per request; the on-chain oracle is the durable shared trust layer. Adversaries we defend against: malicious dApps that craft drainer transactions, phishing pages that postMessage the bridge, attackers who try to Sybil-flag legitimate addresses on the oracle, and anyone attempting to drain Anthropic/Helius/GoPlus quota by hammering public worker endpoints.
+
+**Audit + remediation log:**
+- `D:\Walour\AUDIT_2026-05-07.md` — full audit (4 CRITICAL, 20 HIGH, 22 MEDIUM, 12 LOW).
+- `D:\Walour\REMEDIATION_PLAN_2026-05-07.md` — wave-by-wave fix plan with acceptance criteria.
+
+**Deployment requirement — Vercel cron auth:** Vercel cron does not support custom Authorization headers in `vercel.json`. Instead Vercel auto-injects the value of the `CRON_SECRET` env var as `Authorization: Bearer <CRON_SECRET>` on every scheduled invocation. Before deploying:
+
+1. In `apps/worker/.env` set `WALOUR_CRON_SECRET` to a 32-byte hex string (`node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`).
+2. In Vercel project env, set BOTH `WALOUR_CRON_SECRET` AND `CRON_SECRET` to the same value.
+
+Without step 2, `/api/purge`, `/api/promote`, and `/api/ingest` will 401 immediately on every cron tick. `lib/cron-auth.ts` accepts either env name as a fallback so local development with only `WALOUR_CRON_SECRET` works without a separate `CRON_SECRET`.
+
+### How to verify the security posture
+
+```bash
+# 1. Rate limit on /api/scan (expect first ~30 → 200, rest → 429)
+for i in $(seq 1 50); do curl -s -o /dev/null -w "%{http_code} " "http://localhost:3001/api/scan?hostname=test$i.xyz" & done; wait
+
+# 2. Cron-class endpoints reject GET (405) and unauthenticated POST (401)
+curl -s -o /dev/null -w "purge GET: %{http_code}\n"  -X GET  http://localhost:3001/api/purge
+curl -s -o /dev/null -w "purge POST: %{http_code}\n" -X POST http://localhost:3001/api/purge
+
+# 3. Hostname input validation (expect 400)
+curl -s -o /dev/null -w "%{http_code}\n" "http://localhost:3001/api/scan?hostname=%3Cscript%3E"
+
+# 4. Supabase RLS — drain_blocked_events should have a CHECK-constrained policy
+#    (run via the Supabase SQL editor under the project's anon role)
+SELECT policyname, with_check FROM pg_policies WHERE tablename = 'drain_blocked_events';
+SELECT conname FROM pg_constraint WHERE conrelid = 'public.drain_blocked_events'::regclass AND contype = 'c';
+
+# 5. Oracle program — Sybil corroboration must fail
+cd walour && anchor test --skip-deploy
+```
+
+---
+
 ## License
 
 MIT

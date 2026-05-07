@@ -9,7 +9,7 @@
     "seed:chainabuse": "tsx --env-file=.env scripts/seed-chainabuse-csv.ts"
   },
   "dependencies": {
-    "@coral-xyz/anchor": "^0.30.1",
+    "@coral-xyz/anchor": "^0.32.0",
     "@solana/web3.js": "^1.98.0",
     "@supabase/supabase-js": "^2.43.0",
     "@walour/sdk": "*",

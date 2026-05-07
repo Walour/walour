@@ -4,6 +4,7 @@
 
 import { lookupAddress, checkTokenRisk } from '@walour/sdk'
 import { adaptForVercel } from './lib/adapt'
+import { enforceRateLimit, clientIpFrom, rateLimitedResponse } from './lib/rate-limit'
 
 const BASE58_RE = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/
 
@@ -11,6 +12,15 @@ async function handler(req: Request): Promise<Response> {
   if (req.method !== 'GET') {
     return new Response('Method Not Allowed', { status: 405 })
   }
+
+  // M19: per-IP rate limit on /api/blink — 10 requests/minute. Blinks are
+  // unauthenticated and easy to scrape; the limiter prevents corpus walking.
+  const ip = clientIpFrom({
+    headers: Object.fromEntries(req.headers.entries()),
+    socket: undefined,
+  })
+  const rl = await enforceRateLimit('blink', ip, 10, 60)
+  if (!rl.ok) return rateLimitedResponse(rl.retryAfter, { 'Access-Control-Allow-Origin': '*' })
 
   const url = new URL(req.url, "http://localhost")
   const address = url.searchParams.get('address') ?? ''

@@ -1,6 +1,6 @@
 # Walour: System Architecture
 
-**Version:** v4 · **Date:** 2026-05-03
+**Version:** v5 · **Date:** 2026-05-08
 
 ---
 
@@ -121,34 +121,53 @@ F-SDK-00 worker
 ```
 
 **Source confidence weights:**
+- Chainabuse: 0.90
 - Scam Sniffer: 0.85
-- GoPlus: 0.8
-- Community report: 0.4 (until corroborated)
-- Twitter scrape: 0.3 (until corroborated)
+- GoPlus: 0.80
+- Community report: 0.40 (until corroborated)
+- Twitter scrape: 0.05 (single-source signals — must be corroborated to clear AMBER)
+
+Confidence accumulates on repeated sightings (`+= delta * 0.1`) and is capped at 1.0.
 
 ---
 
 ### 2.4 Walour Oracle (Anchor Program)
 
-On Solana devnet. Program name: `walour_oracle`.
+On Solana devnet. Program ID: `A2pxWB5ro7h1vh4yc7kQeQ4eydV1iA3Fgy9kQ9zhaZVQ`.
 
 **PDAs:**
 ```
-ThreatReport PDA
-  seed: ["threat", address]
-  fields: address, type, source, evidence_url, confidence, first_seen, last_updated, corroborations
+OracleConfig PDA
+  seed: ["config"]
+  fields: authority, bump
 
-Reporter PDA
-  seed: ["reporter", reporter_pubkey]
-  fields: pubkey, reports_submitted, confidence_avg, last_active
+Treasury PDA
+  seed: ["treasury"]
+  purpose: collects 0.01 SOL anti-spam stake on every community submit_report
+
+ThreatReport PDA (community submits)
+  seed: ["threat", address, first_reporter]    ← namespaced by reporter
+  fields: version, address, threat_type, source, evidence_url, confidence,
+          first_seen, last_updated, corroborations, first_reporter, bump
+
+ThreatReport PDA (authority fast-track)
+  seed: ["threat", address]                     ← legacy seed, authority only
+  same field layout
 ```
 
 **Instructions:**
-- `submit_report(address, type, evidence_url)` — public, reporter-signed
-- `corroborate_report(address)` — public
-- `update_confidence(address, new_score)` — admin multisig only (v1)
+- `initialize()` — one-time bootstrap, creates OracleConfig + Treasury
+- `submit_report(address, threat_type, evidence_url)` — permissionless community submit. Charges 0.01 SOL into Treasury. Namespaced PDA per reporter — first-writer squat impossible.
+- `authority_submit_report(...)` — authority-cosigned fast-track. Uses legacy seed for canonical entries. `has_one = authority` constraint on OracleConfig.
+- `corroborate_report(address, first_reporter)` — permissionless. Rejects if `signer == report.first_reporter`. Confidence: `40 + (corroborations × 5)`, capped at 100.
+- `update_confidence(address, new_score)` — `has_one = authority` declarative check.
+- `transfer_authority(new_authority)` — governance handoff.
 
-Ingestion worker promotes high-confidence Supabase entries to devnet PDAs on each sync cycle.
+**Forward compatibility:** every account carries a `version: u8` byte. `ThreatType` is `#[non_exhaustive]`. SDK fails-loud on unknown versions instead of silently misinterpreting bytes.
+
+**Sybil resistance:** namespaced report PDAs + 0.01 SOL Treasury stake + self-corroboration block (via stored `first_reporter`) make cheap-keypair attacks economically painful. 7 Mocha tests cover the attack scenarios.
+
+Ingestion worker promotes high-confidence Supabase entries to devnet PDAs via `authority_submit_report` on each sync cycle.
 
 ---
 
@@ -183,19 +202,21 @@ Every prevented signing event emits `DrainBlockedEvent` to Supabase:
 
 ```ts
 DrainBlockedEvent {
-  event_id: string           // uuid v7
-  timestamp: number          // unix ms
-  wallet_pubkey: string
-  blocked_tx_hash: string
+  event_id: string                  // uuid v4 — CHECK constraint enforces format
+  timestamp: number                 // unix ms
+  wallet_pubkey: string | null      // base58 32-44 chars — CHECK constraint; null when extension can't read pubkey
+  blocked_tx_hash: string | null    // base58 64-88 chars — CHECK constraint; null when not yet known
   drainer_target?: string
-  block_reason: 'phishing_domain' | 'malicious_token' | 'known_drainer' | 'ai_flagged_transfer' | 'setauthority_detected'
+  block_reason: 'phishing_domain' | 'malicious_token' | 'known_drainer' | 'ai_flagged_transfer' | 'setauthority_detected' | 'user_blocked' | 'auto_blocked'
   estimated_sol_saved: number
   estimated_usd_saved: number
-  confirmed: boolean         // post-hoc sim: > 0.01 SOL would have drained
+  confirmed: boolean                // post-hoc sim: > 0.01 SOL would have drained
   surface: 'extension' | 'mobile'
   app_version: string
 }
 ```
+
+The Supabase `drain_blocked_events` table has 4 CHECK constraints applied (event_id UUID format, wallet_pubkey base58 32-44 OR null, blocked_tx_hash base58 64-88 OR null, block_reason length ≤ 64) and a single permissive `allow_anon_insert_constrained` policy that lets the extension write but not read.
 
 Aggregated on the public dashboard at `walour.io/stats`.
 
@@ -209,7 +230,7 @@ Aggregated on the public dashboard at `walour.io/stats`.
 3. Run in parallel:
    a. checkDomain(currentUrl)       → Redis → Homoglyph check → corpus → GoPlus
    b. checkTokenRisk(tokenMint)     → Redis → Helius + GoPlus
-   c. decodeTransaction(tx)         → Redis → Claude Sonnet 4.6 (streaming)
+   c. decodeTransaction(tx)         → Redis → Claude Haiku 4.5 (streaming)
          ↓ if VersionedTransaction
          resolve ALTs first (getAddressLookupTable)
 4. Overlay renders as results stream in
@@ -276,7 +297,7 @@ create table outages (
 | Helius RPC | `getProgramAccounts`, `getTokenLargestAccounts`, `getAddressLookupTable` | API key |
 | Triton | RPC fallback | API key |
 | GoPlus Security | Token malicious check, phishing domain check | API key |
-| Anthropic (Claude Sonnet 4.6 / Haiku 4.5) | Transaction decoder, streaming output | API key |
+| Anthropic (Claude Haiku 4.5 / Haiku 4.5) | Transaction decoder, streaming output | API key |
 | Scam Sniffer | Phishing domain feed (60k domains via GitHub DB) | None (public) |
 | Twitter v2 | Scam keyword scrape | Bearer token |
 | Upstash Redis | Caching | REST token |

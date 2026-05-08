@@ -129,26 +129,45 @@ docs/
 
 ## On-chain oracle
 
-Program ID: `42xCNeFF1HhTDrLfvJu8ieMxuSfEHQDisK8Fe1hJ4QHL` · [View on Solana Explorer](https://explorer.solana.com/address/42xCNeFF1HhTDrLfvJu8ieMxuSfEHQDisK8Fe1hJ4QHL?cluster=devnet)
+Program ID: `A2pxWB5ro7h1vh4yc7kQeQ4eydV1iA3Fgy9kQ9zhaZVQ` · [View on Solana Explorer](https://explorer.solana.com/address/A2pxWB5ro7h1vh4yc7kQeQ4eydV1iA3Fgy9kQ9zhaZVQ?cluster=devnet)
 
 The oracle is the durable shared layer. Community reports flow in permissionlessly. Confidence accumulates from unique corroborations. An authority multisig can override. Everything is anchored to a PDA — no centralised database required to verify a threat.
 
 ```
 submit_report(address, threat_type, evidence_url)
-  → ThreatReport PDA  [seeds: b"threat" + address]
-  → Confidence: 40 (community weight)
+  → ThreatReport PDA  [seeds: b"threat" + address + signer]   ← namespaced by reporter
+  → Each reporter has their own slot for any address — no first-writer squat
+  → Treasury PDA collects 0.01 SOL anti-spam stake on every call
 
-corroborate_report(address)
-  → Corroboration PDA  [seeds: b"corroboration" + address + signer]
-  → init fails if signer already corroborated — sybil guard enforced on-chain
+authority_submit_report(address, threat_type, evidence_url)
+  → ThreatReport PDA  [seeds: b"threat" + address]            ← legacy seed, fast-track
+  → has_one = authority constraint — only Walour authority can call
+  → For verified post-incident reports, no community delay
+
+corroborate_report(address, first_reporter)
+  → Rejects if signer == report.first_reporter (no self-corroboration)
   → Confidence: 40 + (corroborations × 5), capped at 100
 
 update_confidence(address, score)
-  → Authority-gated via OracleConfig PDA
+  → has_one = authority on OracleConfig — declarative, not a manual require!
   → Final override for verified threats
+
+transfer_authority(new_authority)
+  → Governance handoff path
+
+Treasury PDA  [seeds: b"treasury"]
+  → Collects 0.01 SOL stake from every community submit_report
+  → Real economic friction for cheap-keypair Sybil attackers
 ```
 
-**Security properties:** Signer checks via `Signer<'info>` · PDA validation with stored bump on every account · `init` constraint prevents reinitialization · Anchor 8-byte discriminators prevent type cosplay · One-per-signer corroboration PDA closes the sybil vector entirely.
+**Security properties:**
+- Namespaced report PDAs prevent first-writer squat on any address
+- Self-corroboration prevented via stored `first_reporter` field
+- 0.01 SOL stake into Treasury PDA = cheap-keypair attack costs SOL per keypair
+- `has_one = authority` declarative auth check (no manual `require!` to bit-rot)
+- Anchor 8-byte discriminators + version byte prevent type cosplay and silent schema drift
+- `#[non_exhaustive] ThreatType` forward-compatible
+- 7 Mocha tests covering the Sybil + squat + authority-transfer + stake-transfer scenarios
 
 ---
 
@@ -211,14 +230,18 @@ curl "http://localhost:3001/api/scan?hostname=phantom-wallet.xyz"
 ### 4. Load the extension
 
 ```bash
-cp apps/extension/.env.example apps/extension/.env
-# Set VITE_API_BASE=http://localhost:3001
-cd apps/extension && npm run build
+# Two env files — dev mode bakes localhost:3001, prod bakes walour.vercel.app
+cp apps/extension/.env.example apps/extension/.env.development
+cp apps/extension/.env.example apps/extension/.env.production
+
+cd apps/extension && npm run dev   # dev-mode dist (localhost worker)
+# or:
+npm run build                       # prod-mode dist (walour.vercel.app, for Chrome Web Store)
 ```
 
 Chrome → `chrome://extensions` → Developer mode → **Load unpacked** → `apps/extension/dist`
 
-The extension activates on any page where `window.solana` (Phantom, Solflare, Backpack) is present.
+The extension activates on a tight allowlist of 12 known DeFi/wallet domains (jup.ag, raydium.io, orca.so, drift.trade, app.marinade.finance, app.marginfi.com, app.kamino.finance, phantom.app, solflare.com, www.backpack.app, magiceden.io, www.tensor.trade) plus localhost for development testing. The `host_permissions` allowlist is kept narrow on purpose — content scripts don't run on pages outside this set.
 
 ### 5. Stats dashboard
 
@@ -279,9 +302,7 @@ Walour is a security product, so its own posture is published.
 
 **Threat model:** the SDK and extension sit in the wallet-signing critical path; the worker pays for AI/RPC/threat-intel calls per request; the on-chain oracle is the durable shared trust layer. Adversaries we defend against: malicious dApps that craft drainer transactions, phishing pages that postMessage the bridge, attackers who try to Sybil-flag legitimate addresses on the oracle, and anyone attempting to drain Anthropic/Helius/GoPlus quota by hammering public worker endpoints.
 
-**Audit + remediation log:**
-- `D:\Walour\AUDIT_2026-05-07.md` — full audit (4 CRITICAL, 20 HIGH, 22 MEDIUM, 12 LOW).
-- `D:\Walour\REMEDIATION_PLAN_2026-05-07.md` — wave-by-wave fix plan with acceptance criteria.
+**Audit + remediation:** A pre-submission security audit closed **4 CRITICAL + 20 HIGH + 22 MEDIUM + 12 LOW** findings across SDK, worker, extension, and the Anchor program. Highlights: Sybil-resistant PDA seed namespacing, prompt-injection wrapper on all Claude calls, owner+discriminator verification on every on-chain account read, body-size + hostname + rate-limit guards on every public worker endpoint, Supabase RLS hardened with CHECK constraints. Full audit and remediation logs are kept internally; available on request.
 
 **Deployment requirement — Vercel cron auth:** Vercel cron does not support custom Authorization headers in `vercel.json`. Instead Vercel auto-injects the value of the `CRON_SECRET` env var as `Authorization: Bearer <CRON_SECRET>` on every scheduled invocation. Before deploying:
 

@@ -78,7 +78,7 @@ flowchart TB
     rpcfast["RPC Fast"]
     publicRpc["Solana public RPC"]
     goplus["GoPlus Security API"]
-    anthropic["Anthropic Claude<br/>Sonnet primary / Haiku fallback"]
+    anthropic["Anthropic Claude Haiku 4.5<br/>streaming tx decoder"]
     chainabuse["Chainabuse"]
     scamsniffer["ScamSniffer blacklist"]
     twitter["Twitter/X recent search"]
@@ -120,17 +120,21 @@ flowchart TB
   apiReport -- "upsert_threat RPC<br/>source=community" --> supabase
 
   subgraph oracle["programs/walour_oracle - Anchor"]
-    program["walour_oracle program<br/>42xCNe...QHL"]
+    program["walour_oracle program<br/>A2pxWB5ro...ZVQ (devnet)"]
     configPda["OracleConfig PDA<br/>seed: config"]
-    threatPda["ThreatReport PDA<br/>seed: threat + address"]
-    reporterPda["Reporter PDA<br/>seed: reporter + signer"]
+    treasuryPda["Treasury PDA<br/>seed: treasury<br/>collects 0.01 SOL stake per submit"]
+    threatPdaNs["ThreatReport PDA (community)<br/>seed: threat + address + first_reporter"]
+    threatPdaAuth["ThreatReport PDA (authority)<br/>seed: threat + address"]
   end
 
-  promote -- "updateConfidence()" --> program
-  lookupAddress -- "on-chain PDA fallback<br/>if WALOUR_PROGRAM_ID set" --> threatPda
+  promote -- "authority_submit_report()" --> program
+  promote -- "update_confidence()" --> program
+  lookupAddress -- "on-chain PDA via WALOUR_PROGRAM_ID +<br/>WALOUR_ORACLE_CLUSTER (default devnet)" --> threatPdaAuth
+  lookupAddress -- "fallback: getProgramAccounts memcmp scan" --> threatPdaNs
   program --> configPda
-  program --> threatPda
-  program --> reporterPda
+  program --> treasuryPda
+  program --> threatPdaNs
+  program --> threatPdaAuth
   program --> helius
 ```
 
@@ -200,5 +204,5 @@ sequenceDiagram
 | Supabase `threat_reports` | Canonical off-chain threat corpus used by SDK, web app, worker, and community reporting. |
 | Supabase `drain_blocked_events` | Extension telemetry for blocked signing events and stats dashboard counts. |
 | Supabase `ingestion_errors` / `outages` | Operational logs for source ingestion and provider health. |
-| Solana `walour_oracle` PDAs | On-chain shared threat registry: `OracleConfig`, `ThreatReport`, and `Reporter`. |
+| Solana `walour_oracle` PDAs | On-chain shared threat registry: `OracleConfig`, `Treasury` (0.01 SOL anti-spam stake), namespaced `ThreatReport` (community, seed includes reporter), and authority-fast-track `ThreatReport` (legacy seed). |
 

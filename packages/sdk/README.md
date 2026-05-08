@@ -27,7 +27,7 @@ import { checkDomain, lookupAddress } from '@walour/sdk'
 // Is this site in the threat corpus?
 const domain = await checkDomain('wallet-airdrop.xyz')
 // { level: 'RED', reason: 'Phishing domain — 94% confidence', confidence: 0.94, source: 'corpus' }
-// level: 'RED' | 'YELLOW' | 'GREEN'
+// level: 'RED' | 'AMBER' | 'GREEN'
 
 // Is this wallet a known threat?
 const threat = await lookupAddress('Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS')
@@ -108,17 +108,29 @@ The SDK reads these at runtime. Set them in your server environment or `.env` fi
 ANTHROPIC_API_KEY=        # Required for decodeTransaction()
 HELIUS_API_KEY=           # Required for checkTokenRisk() and ALT resolution
 SUPABASE_URL=             # Required for checkDomain() and lookupAddress()
-SUPABASE_ANON_KEY=        # Required for corpus reads
+SUPABASE_SERVICE_KEY=     # Required for corpus reads (server-only — service role)
 UPSTASH_REDIS_REST_URL=   # Required — cache layer for all exports
 UPSTASH_REDIS_REST_TOKEN= # Required — cache layer for all exports
 GOPLUS_API_KEY=           # Optional — higher rate limits on token checks
+WALOUR_PROGRAM_ID=        # Optional — on-chain oracle program ID (default: devnet program)
+WALOUR_ORACLE_CLUSTER=    # Optional — 'devnet' (default) | 'mainnet'
+WALOUR_ORACLE_RPC_URL=    # Optional — override RPC URL for oracle reads
 ```
 
 ---
 
 ## On-chain oracle
 
-Threat data is backed by an Anchor program on Solana (`42xCNeFF1HhTDrLfvJu8ieMxuSfEHQDisK8Fe1hJ4QHL`). Anyone can submit or corroborate a threat report. Confidence scores accumulate from unique-wallet corroborations — one signer, one vote, enforced on-chain via a `Corroboration` PDA. The SDK reads from the oracle via Supabase, which is kept in sync by the Walour ingest worker.
+Threat data is backed by an Anchor program on Solana (`A2pxWB5ro7h1vh4yc7kQeQ4eydV1iA3Fgy9kQ9zhaZVQ`, devnet). Sybil-resistant by design:
+
+- **Namespaced reports** — every `submit_report` PDA is seeded by `[b"threat", address, first_reporter]`, so multiple reporters can each file independently on the same address. Off-chain aggregation produces consensus.
+- **Authority fast-track** — a separate `authority_submit_report` instruction at the legacy seed `[b"threat", address]` lets the Walour authority publish high-confidence threats immediately (judged corpus, post-incident).
+- **Anti-spam stake** — each community submit transfers 0.01 SOL into a Treasury PDA `[b"treasury"]`. Cheap-keypair attackers have to fund every keypair.
+- **Self-corroboration blocked** — `corroborate_report` rejects when signer == report.first_reporter. No vote-stuffing.
+- **Authority can override** — `update_confidence` is gated by `has_one = authority`. `transfer_authority` allows governance handoff later.
+- **Forward-compat** — every account carries a `version: u8` byte; `ThreatType` is `#[non_exhaustive]`; SDK fails-loud on unknown versions instead of silently misinterpreting bytes.
+
+The SDK reads from the oracle via `getOracleConnection()` (controlled by `WALOUR_ORACLE_CLUSTER` env, default `devnet`). On-chain reads use a two-path lookup: legacy authority seed first, then `getProgramAccounts` memcmp scan over namespaced PDAs. Owner + 8-byte Anchor discriminator are verified before bytes are decoded.
 
 ---
 

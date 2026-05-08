@@ -1,7 +1,37 @@
 {
   "name": "@walour/sdk",
   "version": "0.1.0",
-  "description": "AI-powered real-time scam protection SDK for Solana",
+  "description": "AI-powered real-time scam protection SDK for Solana — domain checks, token risk scoring, streaming Claude transaction explanations, and on-chain threat oracle integration.",
+  "keywords": [
+    "solana",
+    "security",
+    "scam-protection",
+    "wallet",
+    "drainer",
+    "phishing",
+    "anchor",
+    "oracle",
+    "defi",
+    "anthropic",
+    "claude"
+  ],
+  "homepage": "https://walour.io",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Walour/Walour.git",
+    "directory": "packages/sdk"
+  },
+  "bugs": {
+    "url": "https://github.com/Walour/Walour/issues"
+  },
+  "author": "Sahir <sikandersahir@gmail.com>",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
   "main": "dist/index.js",
   "module": "dist/index.mjs",
   "types": "dist/index.d.ts",
@@ -13,14 +43,16 @@
     }
   },
   "files": [
-    "dist"
+    "dist",
+    "README.md",
+    "LICENSE"
   ],
   "scripts": {
-    "build": "tsup src/index.ts --format cjs,esm --dts",
-    "dev": "tsup src/index.ts --format cjs,esm --dts --watch",
-    "test": "node --experimental-vm-modules ../../node_modules/jest/bin/jest.js"
+    "build": "tsup src/index.ts --format cjs,esm --dts --external @solana/web3.js --external @anthropic-ai/sdk --external @upstash/redis --external @cloak.dev/sdk",
+    "dev": "tsup src/index.ts --format cjs,esm --dts --watch --external @solana/web3.js --external @anthropic-ai/sdk --external @upstash/redis --external @cloak.dev/sdk",
+    "test": "node --experimental-vm-modules ../../node_modules/jest/bin/jest.js",
+    "prepublishOnly": "npm run build"
   },
-  "license": "MIT",
   "dependencies": {
     "@anthropic-ai/sdk": "^0.39.0",
     "@solana/web3.js": "^1.98.0",

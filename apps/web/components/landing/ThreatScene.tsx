@@ -3,13 +3,14 @@
 import { useInView } from '@/hooks/useInView'
 import { useCountUp } from '@/hooks/useCountUp'
 import ThreatFeed from './ThreatFeed'
+import type { FeedEntry } from '@/lib/feed'
 
 function CountUp({ to, trigger }: { to: number; trigger: boolean }) {
   const v = useCountUp(to, 1600, trigger)
   return <>{v}</>
 }
 
-export default function ThreatScene() {
+export default function ThreatScene({ feedEntries }: { feedEntries: FeedEntry[] }) {
   const { ref, inView } = useInView<HTMLElement>({ threshold: 0.2 })
 
   return (
@@ -47,7 +48,7 @@ export default function ThreatScene() {
           </div>
         </div>
 
-        <ThreatFeed />
+        <ThreatFeed entries={feedEntries} />
       </div>
     </section>
   )

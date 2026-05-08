@@ -8,10 +8,10 @@ import IntelSources from '@/components/landing/IntelSources'
 import FeatureTiles from '@/components/landing/FeatureTiles'
 import SdkBlock from '@/components/landing/SdkBlock'
 import CtaBanner from '@/components/landing/CtaBanner'
-import { fetchStats } from '@/lib/queries'
+import { fetchStats, fetchThreatFeed } from '@/lib/queries'
 
 export default async function HomePage() {
-  const stats = await fetchStats()
+  const [stats, feedEntries] = await Promise.all([fetchStats(), fetchThreatFeed(6)])
   return (
     <main>
       <Hero threatsIndexed={stats.threatsTracked} />
@@ -20,7 +20,7 @@ export default async function HomePage() {
         drainsBlocked={stats.drainsBlocked}
         solSaved={stats.solSaved}
       />
-      <ThreatScene />
+      <ThreatScene feedEntries={feedEntries} />
       <HowItWorks />
       <IntelSources />
       <FeatureTiles />

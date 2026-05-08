@@ -1,6 +1,7 @@
 import 'server-only'
 import { getSupabase } from './supabase'
 import type { StatsData, ThreatsResponse, ThreatRow, ProviderStatus } from './types'
+import type { FeedEntry, FeedVerdict } from './feed'
 
 const KNOWN_PROVIDERS = ['Helius', 'Triton', 'GoPlus', 'Claude', 'Upstash', 'Solana RPC'] as const
 
@@ -84,6 +85,92 @@ export async function fetchStats(): Promise<StatsData> {
     confidenceBuckets,
     providerHealth,
   }
+}
+
+
+const BLOCK_REASON_STORY: Record<string, string> = {
+  phishing_domain: 'Phishing dApp asked for unlimited SPL approval',
+  malicious_token: 'Malicious mint disguised as an NFT claim',
+  known_drainer: 'Known drainer contract masked as a token swap',
+  ai_flagged_transfer: 'Hidden transfer instruction caught mid-sign',
+  setauthority_detected: 'Token authority transfer to an unknown address',
+  user_blocked: 'User refused to sign a flagged transaction',
+  auto_blocked: 'Auto-blocked drainer attempt at signing',
+}
+
+const THREAT_TYPE_STORY: Record<string, string> = {
+  drainer: 'Newly catalogued drainer address',
+  rug: 'Rug-pull token added to the registry',
+  phishing: 'Phishing site indexed from community reports',
+  malicious_token: 'Malicious token surfaced from on-chain heuristics',
+  phishing_domain: 'Phishing domain indexed from community reports',
+}
+
+function shortAddr(addr: string | null | undefined): string {
+  if (!addr) return ''
+  if (addr.length <= 10) return addr
+  return `${addr.slice(0, 4)}...${addr.slice(-4)}`
+}
+
+export async function fetchThreatFeed(limit = 6): Promise<FeedEntry[]> {
+  const supabase = getSupabase()
+  if (!supabase) return []
+
+  const blockedTake = Math.max(1, Math.min(limit, 4))
+  const drainedTake = Math.max(1, limit - blockedTake)
+
+  const [blockedRows, threatRows] = await Promise.all([
+    supabase
+      .from('drain_blocked_events')
+      .select('event_id, timestamp, block_reason, estimated_sol_saved')
+      .eq('confirmed', true)
+      .order('timestamp', { ascending: false })
+      .limit(blockedTake),
+    supabase
+      .from('threat_reports')
+      .select('address, type, last_updated, confidence')
+      .gte('confidence', 0.6)
+      .order('last_updated', { ascending: false })
+      .limit(drainedTake),
+  ])
+
+  const entries: FeedEntry[] = []
+
+  for (const row of (blockedRows.data ?? []) as Array<{
+    event_id: string
+    timestamp: number
+    block_reason: string
+    estimated_sol_saved: number | null
+  }>) {
+    const sol = row.estimated_sol_saved ?? 0
+    entries.push({
+      id: `blocked-${row.event_id}`,
+      ts: Number(row.timestamp) || Date.now(),
+      verdict: 'BLOCKED' as FeedVerdict,
+      story: BLOCK_REASON_STORY[row.block_reason] ?? 'Drainer attempt blocked at signing',
+      amount: sol > 0 ? `${sol.toFixed(1)} SOL` : undefined,
+    })
+  }
+
+  for (const row of (threatRows.data ?? []) as Array<{
+    address: string
+    type: string
+    last_updated: string
+    confidence: number
+  }>) {
+    const ts = new Date(row.last_updated).getTime()
+    const base = THREAT_TYPE_STORY[row.type] ?? 'New threat indexed in the registry'
+    const tag = shortAddr(row.address)
+    entries.push({
+      id: `threat-${row.address}`,
+      ts: Number.isFinite(ts) ? ts : Date.now(),
+      verdict: 'DRAINED' as FeedVerdict,
+      story: tag ? `${base} (${tag})` : base,
+    })
+  }
+
+  entries.sort((a, b) => b.ts - a.ts)
+  return entries.slice(0, limit)
 }
 
 

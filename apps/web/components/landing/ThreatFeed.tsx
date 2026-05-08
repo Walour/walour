@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { FeedEntry, generateEntry, SEED_ENTRIES, relativeTime } from '@/lib/feed'
+import { FeedEntry, relativeTime } from '@/lib/feed'
 
 const MAX_VISIBLE = 6
 
@@ -26,11 +26,11 @@ function WalourMark() {
   )
 }
 
-function FeedRow({ entry, now, isNew }: { entry: FeedEntry; now: number; isNew: boolean }) {
+function FeedRow({ entry, now }: { entry: FeedEntry; now: number }) {
   const blocked = entry.verdict === 'BLOCKED'
   return (
     <div
-      className={`tf-row ${blocked ? 'tf-row-blocked' : 'tf-row-drained'}${isNew ? ' tf-row-new' : ''}`}
+      className={`tf-row ${blocked ? 'tf-row-blocked' : 'tf-row-drained'}`}
       role="listitem"
     >
       <span className="tf-indicator" aria-hidden="true" />
@@ -58,50 +58,34 @@ function FeedRow({ entry, now, isNew }: { entry: FeedEntry; now: number; isNew: 
   )
 }
 
-export default function ThreatFeed() {
-  const [entries, setEntries] = useState<FeedEntry[]>([])
-  const [now, setNow] = useState(0)
-  const [latestId, setLatestId] = useState<string | null>(null)
+export default function ThreatFeed({ entries }: { entries: FeedEntry[] }) {
+  const [now, setNow] = useState(() => Date.now())
 
   useEffect(() => {
-    setEntries(SEED_ENTRIES.slice(0, MAX_VISIBLE))
-    setNow(Date.now())
-  }, [])
-
-  useEffect(() => {
-    const id = setInterval(() => setNow(Date.now()), 1000)
+    const id = setInterval(() => setNow(Date.now()), 30_000)
     return () => clearInterval(id)
   }, [])
 
-  useEffect(() => {
-    let cancelled = false
-    let counter = SEED_ENTRIES.length
-    let timeoutId: ReturnType<typeof setTimeout>
-
-    const schedule = () => {
-      timeoutId = setTimeout(() => {
-        if (cancelled) return
-        const next = generateEntry(counter++)
-        setLatestId(next.id)
-        setEntries(prev => [next, ...prev].slice(0, MAX_VISIBLE))
-        schedule()
-      }, 2800 + Math.random() * 2600)
-    }
-    schedule()
-    return () => { cancelled = true; clearTimeout(timeoutId) }
-  }, [])
+  const visible = entries.slice(0, MAX_VISIBLE)
+  const empty = visible.length === 0
 
   return (
     <div className="threat-feed-card">
       <div className="threat-feed-head">
         <span className="threat-feed-pulse" aria-hidden="true" />
         <span className="threat-feed-title">Live threat feed</span>
-        <span className="threat-feed-sub">Solana devnet · last 60 seconds</span>
+        <span className="threat-feed-sub">Solana · live from the Walour corpus</span>
       </div>
       <div className="threat-feed-list" role="list">
-        {entries.map(e => (
-          <FeedRow key={e.id} entry={e} now={now} isNew={e.id === latestId} />
-        ))}
+        {empty ? (
+          <div className="tf-row" role="listitem">
+            <div className="tf-body">
+              <span className="tf-story">No recent activity in the corpus yet.</span>
+            </div>
+          </div>
+        ) : (
+          visible.map(e => <FeedRow key={e.id} entry={e} now={now} />)
+        )}
       </div>
     </div>
   )

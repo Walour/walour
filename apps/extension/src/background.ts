@@ -3,8 +3,8 @@
 interface DrainBlockedEvent {
   event_id: string
   timestamp: number
-  wallet_pubkey: string
-  blocked_tx_hash: string
+  wallet_pubkey: string | null
+  blocked_tx_hash: string | null
   drainer_target?: string
   block_reason: string
   surface: 'extension'

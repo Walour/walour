@@ -65,8 +65,8 @@ export default async function handler(req: Request): Promise<Response> {
   const { error } = await supabase.from('drain_blocked_events').insert({
     event_id: eventId,
     timestamp,
-    wallet_pubkey: readString(body.wallet_pubkey) ?? '',
-    blocked_tx_hash: readString(body.blocked_tx_hash) ?? '',
+    wallet_pubkey: readString(body.wallet_pubkey) ?? null,
+    blocked_tx_hash: readString(body.blocked_tx_hash) ?? null,
     drainer_target: readString(body.drainer_target),
     block_reason: blockReason,
     estimated_sol_saved: 0,

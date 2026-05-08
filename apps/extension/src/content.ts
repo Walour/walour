@@ -166,8 +166,8 @@ if (typeof (window as any).__walour_content_injected === 'undefined') {
                 event: {
                   event_id: reqId,
                   timestamp: Date.now(),
-                  wallet_pubkey: '',
-                  blocked_tx_hash: '',
+                  wallet_pubkey: null,
+                  blocked_tx_hash: null,
                   drainer_target: null,
                   block_reason: 'user_blocked',
                   surface: 'extension',

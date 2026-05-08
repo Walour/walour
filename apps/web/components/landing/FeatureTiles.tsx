@@ -123,7 +123,7 @@ export default function FeatureTiles() {
   }, [])
 
   return (
-    <section style={{ padding: '48px 0' }}>
+    <section style={{ padding: '50px 0' }}>
       <div className="container">
         <div style={{ textAlign: 'center', marginBottom: 48 }}>
           <h2 style={{ fontSize: 'clamp(28px,4vw,42px)', fontWeight: 700, letterSpacing: '-0.03em', margin: '0 0 12px' }}>

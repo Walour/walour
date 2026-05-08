@@ -1451,7 +1451,7 @@ td.col-date { white-space: nowrap; color: var(--text-muted); }
 
 /* ---------- Threat Scene ---------- */
 .threat-scene {
-  padding: 48px 0;
+  padding: 40px 0;
   position: relative;
   background: transparent;
 }
@@ -1668,7 +1668,7 @@ td.col-date { white-space: nowrap; color: var(--text-muted); }
 }
 
 /* ---------- How It Works ---------- */
-.how-section { padding: 48px 0; }
+.how-section { padding: 40px 0; }
 .how-section-head {
   text-align: center;
   margin-bottom: 64px;
@@ -2025,7 +2025,7 @@ td.col-date { white-space: nowrap; color: var(--text-muted); }
 }
 
 /* ---------- SDK Block enhancements ---------- */
-.sdk-section { padding: 48px 0; }
+.sdk-section { padding: 40px 0; }
 .sdk-two-col {
   display: grid;
   grid-template-columns: 1fr 1.15fr;

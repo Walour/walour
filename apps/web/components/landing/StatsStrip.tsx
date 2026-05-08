@@ -80,7 +80,7 @@ export default function StatsStrip({
   ]
 
   return (
-    <div className="container" style={{ paddingBottom: 48 }}>
+    <div className="container" style={{ paddingTop: 40, paddingBottom: 40 }}>
       <div
         className="stats-strip glass-subtle stats-strip-responsive"
         style={{

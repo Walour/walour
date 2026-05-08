@@ -19,7 +19,7 @@ const ALL_SOURCES = [...LEFT_SOURCES, ...RIGHT_SOURCES]
 
 // Canvas geometry — oracle centered, 3 sources each side
 const VW = 1000
-const VH = 460
+const VH = 300
 const SRC_W = 248
 const SRC_H = 64
 const SRC_GAP = 20
@@ -72,7 +72,7 @@ export default function IntelSources() {
   }, [inView])
 
   return (
-    <section style={{ padding: '48px 0' }}>
+    <section style={{ padding: '40px 0' }}>
       <style>{`
         @keyframes wal-flow {
           0%   { stroke-dashoffset: 0; }
@@ -137,7 +137,7 @@ export default function IntelSources() {
       `}</style>
 
       <div className="container">
-        <div style={{ textAlign: 'center', marginBottom: 40 }}>
+        <div style={{ textAlign: 'center', marginBottom: 48 }}>
           <h2 style={{
             fontSize: 'clamp(28px, 4.4vw, 44px)',
             fontWeight: 700,
@@ -211,7 +211,7 @@ export default function IntelSources() {
               {/* Glow behind oracle */}
               <circle
                 cx={ORACLE.x + ORACLE.w / 2} cy={ORACLE.y}
-                r={190}
+                r={130}
                 fill="url(#wal-oracle-glow)"
               />
 

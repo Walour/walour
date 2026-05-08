@@ -3,13 +3,13 @@ seeds = true
 skip-lint = false
 
 [programs.localnet]
-walour_oracle = "42xCNeFF1HhTDrLfvJu8ieMxuSfEHQDisK8Fe1hJ4QHL"
+walour_oracle = "A2pxWB5ro7h1vh4yc7kQeQ4eydV1iA3Fgy9kQ9zhaZVQ"
 
 [programs.devnet]
-walour_oracle = "42xCNeFF1HhTDrLfvJu8ieMxuSfEHQDisK8Fe1hJ4QHL"
+walour_oracle = "A2pxWB5ro7h1vh4yc7kQeQ4eydV1iA3Fgy9kQ9zhaZVQ"
 
 [programs.mainnet]
-walour_oracle = "42xCNeFF1HhTDrLfvJu8ieMxuSfEHQDisK8Fe1hJ4QHL"
+walour_oracle = "A2pxWB5ro7h1vh4yc7kQeQ4eydV1iA3Fgy9kQ9zhaZVQ"
 
 [registry]
 url = "https://api.apr.dev"

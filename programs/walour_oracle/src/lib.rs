@@ -1,7 +1,7 @@
 use anchor_lang::prelude::*;
 use anchor_lang::system_program::{self, Transfer};
 
-declare_id!("42xCNeFF1HhTDrLfvJu8ieMxuSfEHQDisK8Fe1hJ4QHL");
+declare_id!("A2pxWB5ro7h1vh4yc7kQeQ4eydV1iA3Fgy9kQ9zhaZVQ");
 
 // ---------------------------------------------------------------------------
 // Space constants

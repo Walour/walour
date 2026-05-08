@@ -1,6 +1,6 @@
 # @walour/worker
 
-Walour's backend — public scan/decode/simulate/blink endpoints plus scheduled cron handlers that keep the threat corpus fresh.
+Walour's backend, public scan/decode/simulate/blink endpoints plus scheduled cron handlers that keep the threat corpus fresh.
 
 **Public endpoints** (consumed by the SDK / extension / web demo):
 
@@ -9,7 +9,7 @@ Walour's backend — public scan/decode/simulate/blink endpoints plus scheduled 
 | `/api/scan` | GET | Domain + token risk + drainer detection on a tx |
 | `/api/decode` | POST | Stream Claude Haiku explanation of a transaction (SSE) |
 | `/api/simulate` | POST | Pre-sign SOL + token balance delta simulation |
-| `/api/blink` | GET | Dialect Blinks endpoint — share threats as actionable links |
+| `/api/blink` | GET | Dialect Blinks endpoint, share threats as actionable links |
 
 **Cron handlers** (Vercel scheduler, all Bearer-authenticated via `WALOUR_CRON_SECRET` / `CRON_SECRET`):
 
@@ -30,18 +30,18 @@ Set in Vercel project settings (or a local `.env` for `npm run dev`):
 | Variable | Required | Description |
 |---|---|---|
 | `SUPABASE_URL` | Yes | Supabase project URL |
-| `SUPABASE_SERVICE_KEY` | Yes | `service_role` key — worker needs write access |
+| `SUPABASE_SERVICE_KEY` | Yes | `service_role` key, worker needs write access |
 | `HELIUS_API_KEY` | Yes | Primary Solana RPC for tx decode + ALT resolution |
 | `ANTHROPIC_API_KEY` | Yes | Claude Haiku 4.5 streaming tx decoder |
 | `UPSTASH_REDIS_REST_URL` | Yes | Cache + rate-limiter backend |
 | `UPSTASH_REDIS_REST_TOKEN` | Yes | Cache + rate-limiter backend |
 | `WALOUR_CRON_SECRET` | Yes | 32-byte hex secret for cron auth (generate via `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`) |
-| `CRON_SECRET` | Yes (Vercel) | Same value as `WALOUR_CRON_SECRET` — Vercel auto-injects this on cron invocations |
+| `CRON_SECRET` | Yes (Vercel) | Same value as `WALOUR_CRON_SECRET`, Vercel auto-injects this on cron invocations |
 | `WALOUR_PROGRAM_ID` | Yes | Deployed oracle program ID |
 | `WALOUR_ORACLE_CLUSTER` | No | `devnet` (default) or `mainnet` for oracle PDA reads |
 | `EXTENSION_ID` | Yes (prod) | Chrome extension ID for CORS allowlist |
 | `GOPLUS_API_KEY` | No | Higher rate limits on token + domain checks |
-| `JUPITER_API_KEY` | No | Token intel — organic score, isVerified, isSus |
+| `JUPITER_API_KEY` | No | Token intel, organic score, isVerified, isSus |
 | `TRITON_KEY` | No | RPC fallback (rpcpool.com) |
 | `RPC_FAST_API_KEY` | No | Tertiary RPC fallback |
 | `TWITTER_BEARER_TOKEN` | No | Twitter source for ingestion (silently skipped if absent) |
@@ -82,7 +82,7 @@ Vercel automatically picks up `vercel.json` and registers both cron jobs.
 
 ## Trigger manually
 
-Cron-class endpoints require a Bearer token matching `WALOUR_CRON_SECRET` (or `CRON_SECRET` — Vercel auto-injects this on its own cron invocations):
+Cron-class endpoints require a Bearer token matching `WALOUR_CRON_SECRET` (or `CRON_SECRET`, Vercel auto-injects this on its own cron invocations):
 
 ```bash
 SECRET=$(grep WALOUR_CRON_SECRET .env | cut -d= -f2)
@@ -143,7 +143,7 @@ where confidence < 0.2
 | `chainabuse` | 0.90 | Verified community reports |
 | `scam_sniffer` | 0.85 | Automated drainer detection |
 | `community` | 0.40 | User-submitted (reserved for future use) |
-| `twitter` | 0.05 | Social signal — single-source, must be corroborated to clear AMBER |
+| `twitter` | 0.05 | Social signal, single-source, must be corroborated to clear AMBER |
 
 Confidence accumulates on repeated sightings (`+= delta * 0.1`) and is capped at 1.0.
 
@@ -151,7 +151,7 @@ Confidence accumulates on repeated sightings (`+= delta * 0.1`) and is capped at
 
 ## Error handling
 
-- A single bad row never crashes the worker — it is logged to `ingestion_errors` and skipped.
+- A single bad row never crashes the worker, it is logged to `ingestion_errors` and skipped.
 - A source API being down logs a warning and records an entry in `outages`; the rest of the run proceeds normally.
 - The entire fetch phase has a 55-second global timeout (Vercel limit is 60s).
 
@@ -167,4 +167,4 @@ Confidence accumulates on repeated sightings (`+= delta * 0.1`) and is capped at
 | `/api/ingest` | GET | Cron: ingest threat data from GoPlus + ScamSniffer into Supabase |
 | `/api/promote` | GET | Cron: promote high-confidence Supabase threats to on-chain oracle |
 | `/api/purge` | GET | Cron: purge stale low-confidence threat entries (runs every 2h) |
-| `/api/blink` | GET | Dialect Blink — share a threat report as a shareable action URL |
+| `/api/blink` | GET | Dialect Blink, share a threat report as a shareable action URL |

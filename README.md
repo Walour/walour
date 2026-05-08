@@ -6,7 +6,20 @@
 [![Solana](https://img.shields.io/badge/Solana-devnet-9945FF)](https://solana.com)
 [![Colosseum Frontier 2026](https://img.shields.io/badge/Colosseum-Frontier%202026-FF6B35)](https://arena.colosseum.org)
 
-**Website:** [walour.io](https://www.walour.io) · **Worker API:** [walour.vercel.app](https://walour.vercel.app)
+**Website:** [walour.io](https://www.walour.io) · **Worker API:** [walour.vercel.app](https://walour.vercel.app) · **SDK:** [`@walour/sdk` on npm](https://www.npmjs.com/package/@walour/sdk) · **Colosseum:** [arena.colosseum.org/projects/explore/walour](https://arena.colosseum.org/projects/explore/walour)
+
+---
+
+## At a glance
+
+| | |
+|---|---|
+| **Live demo** | https://walour.io/demo, click any scenario, see a real verdict from a real corpus hit |
+| **On-chain oracle** | [`A2pxWB5ro7h1vh4yc7kQeQ4eydV1iA3Fgy9kQ9zhaZVQ`](https://explorer.solana.com/address/A2pxWB5ro7h1vh4yc7kQeQ4eydV1iA3Fgy9kQ9zhaZVQ?cluster=devnet) on devnet, 10 threat reports indexed, Treasury PDA active |
+| **SDK** | `npm install @walour/sdk`, published, 32 KB, MIT |
+| **Threat corpus** | 59,728 indexed entries from chainabuse, scam_sniffer, twitter, community |
+| **Audit** | 4 CRITICAL + 20 HIGH + 22 MEDIUM + 12 LOW findings closed pre-submission |
+| **What you can run today** | Chrome extension intercepting `signTransaction`, worker on `:3001`, Claude Haiku tx decoder streaming explanations in <400ms first-token |
 
 ---
 
@@ -70,9 +83,9 @@ const risk = await checkDomain('phantom-wallet.xyz')
 |---|---|---|
 | Phishing / lookalike domains | Corpus + GoPlus + homoglyph (Punycode/Unicode) | ✅ |
 | Newly registered domain (< 14 days) | RDAP domain age check | ✅ |
-| Token honeypot — mint authority not revoked | On-chain mint info | ✅ |
-| Token honeypot — Token-2022 ConfidentialTransfer | Extension field check | ✅ |
-| Token honeypot — transfer fee > 5% | transferFeeBasisPoints check | ✅ |
+| Token honeypot, mint authority not revoked | On-chain mint info | ✅ |
+| Token honeypot, Token-2022 ConfidentialTransfer | Extension field check | ✅ |
+| Token honeypot, transfer fee > 5% | transferFeeBasisPoints check | ✅ |
 | SetAuthority drain (token ownership transfer) | Discriminator `06` | ✅ |
 | CloseAccount drain | Discriminator `09` | ✅ |
 | Unlimited Approve to non-DEX | Discriminator `04` | ✅ |
@@ -94,8 +107,8 @@ Walour uses **Jupiter Tokens v2** and **Price v3** as a dedicated security intel
 | Field | Source | Weight | Usage |
 |---|---|---|---|
 | `organicScoreLabel` | Tokens v2 | 15 | `low` = RED flag; `high` = positive pass; numeric fallback when label absent |
-| `audit.isSus` | Tokens v2 | 20 | Only present in response when flagged — `true` fires; absence is not treated as safe |
-| `isVerified` | Tokens v2 | 5 | Only penalises when another flag is already present — avoids punishing new legitimate tokens |
+| `audit.isSus` | Tokens v2 | 20 | Only present in response when flagged, `true` fires; absence is not treated as safe |
+| `isVerified` | Tokens v2 | 5 | Only penalises when another flag is already present, avoids punishing new legitimate tokens |
 | `devBalancePercentage` | Tokens v2 | 10 | > 20% deployer concentration = AMBER flag |
 | Price presence | Price v3 | 10 | Token absent from price feed AND older than 7 days = AMBER; new tokens are excluded |
 
@@ -109,20 +122,20 @@ Maximum Jupiter contribution: 60/100 points. Walour's RED threshold is 60, so Ju
 
 ```
 apps/
-  worker/        — Backend API (Vercel Edge Functions)
+  worker/       , Backend API (Vercel Edge Functions)
                    /api/scan      → domain + token risk check
                    /api/decode    → Claude Haiku streaming decoder
                    /api/simulate  → pre-sign SOL + token balance delta simulation
-  extension/     — Chrome extension (Manifest V3, TypeScript + Vite)
-  web/           — Marketing site + stats dashboard (Next.js)
+  extension/    , Chrome extension (Manifest V3, TypeScript + Vite)
+  web/          , Marketing site + stats dashboard (Next.js)
 packages/
-  sdk/           — @walour/sdk — checkDomain, checkTokenRisk, decodeTransaction
-  tokens/        — Shared CSS design tokens
+  sdk/          , @walour/sdk, checkDomain, checkTokenRisk, decodeTransaction
+  tokens/       , Shared CSS design tokens
 programs/
-  walour_oracle/ — Anchor program (on-chain threat registry)
+  walour_oracle/, Anchor program (on-chain threat registry)
 docs/
-  architecture.md        — Full system architecture
-  JUPITER_DX_REPORT.md   — Jupiter Developer Platform integration report
+  architecture.md       , Full system architecture
+  JUPITER_DX_REPORT.md  , Jupiter Developer Platform integration report
 ```
 
 ---
@@ -131,17 +144,17 @@ docs/
 
 Program ID: `A2pxWB5ro7h1vh4yc7kQeQ4eydV1iA3Fgy9kQ9zhaZVQ` · [View on Solana Explorer](https://explorer.solana.com/address/A2pxWB5ro7h1vh4yc7kQeQ4eydV1iA3Fgy9kQ9zhaZVQ?cluster=devnet)
 
-The oracle is the durable shared layer. Community reports flow in permissionlessly. Confidence accumulates from unique corroborations. An authority multisig can override. Everything is anchored to a PDA — no centralised database required to verify a threat.
+The oracle is the durable shared layer. Community reports flow in permissionlessly. Confidence accumulates from unique corroborations. An authority multisig can override. Everything is anchored to a PDA, no centralised database required to verify a threat.
 
 ```
 submit_report(address, threat_type, evidence_url)
   → ThreatReport PDA  [seeds: b"threat" + address + signer]   ← namespaced by reporter
-  → Each reporter has their own slot for any address — no first-writer squat
+  → Each reporter has their own slot for any address, no first-writer squat
   → Treasury PDA collects 0.01 SOL anti-spam stake on every call
 
 authority_submit_report(address, threat_type, evidence_url)
   → ThreatReport PDA  [seeds: b"threat" + address]            ← legacy seed, fast-track
-  → has_one = authority constraint — only Walour authority can call
+  → has_one = authority constraint, only Walour authority can call
   → For verified post-incident reports, no community delay
 
 corroborate_report(address, first_reporter)
@@ -149,7 +162,7 @@ corroborate_report(address, first_reporter)
   → Confidence: 40 + (corroborations × 5), capped at 100
 
 update_confidence(address, score)
-  → has_one = authority on OracleConfig — declarative, not a manual require!
+  → has_one = authority on OracleConfig, declarative, not a manual require!
   → Final override for verified threats
 
 transfer_authority(new_authority)
@@ -195,20 +208,20 @@ cp apps/worker/.env.example apps/worker/.env
 
 ```
 ANTHROPIC_API_KEY=          # Claude Haiku (tx decoder streaming)
-HELIUS_API_KEY=             # Primary Solana RPC — free tier at helius.dev
-TRITON_KEY=                 # Secondary RPC fallback — rpcpool.com (optional)
-RPC_FAST_API_KEY=           # Tertiary RPC fallback — portal.rpcfast.io (optional)
+HELIUS_API_KEY=             # Primary Solana RPC, free tier at helius.dev
+TRITON_KEY=                 # Secondary RPC fallback, rpcpool.com (optional)
+RPC_FAST_API_KEY=           # Tertiary RPC fallback, portal.rpcfast.io (optional)
 SUPABASE_URL=               # Supabase project URL
 SUPABASE_SERVICE_KEY=       # service_role key (worker needs write access)
 UPSTASH_REDIS_URL=          # Upstash Redis REST URL
 UPSTASH_REDIS_TOKEN=        # Upstash Redis REST token
-GOPLUS_API_KEY=             # GoPlus Security — token + domain threat intel (optional, free tier)
-JUPITER_API_KEY=            # Jupiter API key — organic score + audit.isSus checks
+GOPLUS_API_KEY=             # GoPlus Security, token + domain threat intel (optional, free tier)
+JUPITER_API_KEY=            # Jupiter API key, organic score + audit.isSus checks
                             # Free tier (60 RPM) at portal.jup.ag
                             # If absent, Jupiter checks are silently skipped
 WALOUR_PROGRAM_ID=          # Deployed oracle program ID (see programs/walour_oracle)
 EXTENSION_ID=               # Your Chrome extension ID from chrome://extensions
-TWITTER_BEARER_TOKEN=       # Optional — scam keyword scrape for corpus ingestion
+TWITTER_BEARER_TOKEN=       # Optional, scam keyword scrape for corpus ingestion
 ```
 
 </details>
@@ -230,7 +243,7 @@ curl "http://localhost:3001/api/scan?hostname=phantom-wallet.xyz"
 ### 4. Load the extension
 
 ```bash
-# Two env files — dev mode bakes localhost:3001, prod bakes walour.vercel.app
+# Two env files, dev mode bakes localhost:3001, prod bakes walour.vercel.app
 cp apps/extension/.env.example apps/extension/.env.development
 cp apps/extension/.env.example apps/extension/.env.production
 
@@ -241,7 +254,7 @@ npm run build                       # prod-mode dist (walour.vercel.app, for Chr
 
 Chrome → `chrome://extensions` → Developer mode → **Load unpacked** → `apps/extension/dist`
 
-The extension activates on a tight allowlist of 12 known DeFi/wallet domains (jup.ag, raydium.io, orca.so, drift.trade, app.marinade.finance, app.marginfi.com, app.kamino.finance, phantom.app, solflare.com, www.backpack.app, magiceden.io, www.tensor.trade) plus localhost for development testing. The `host_permissions` allowlist is kept narrow on purpose — content scripts don't run on pages outside this set.
+The extension activates on a tight allowlist of 12 known DeFi/wallet domains (jup.ag, raydium.io, orca.so, drift.trade, app.marinade.finance, app.marginfi.com, app.kamino.finance, phantom.app, solflare.com, www.backpack.app, magiceden.io, www.tensor.trade) plus localhost for development testing. The `host_permissions` allowlist is kept narrow on purpose, content scripts don't run on pages outside this set.
 
 ### 5. Stats dashboard
 
@@ -261,15 +274,15 @@ npm install @walour/sdk
 ```ts
 import { checkDomain, checkTokenRisk, decodeTransaction } from '@walour/sdk'
 
-// Domain check — corpus + GoPlus + homoglyph + RDAP age
+// Domain check, corpus + GoPlus + homoglyph + RDAP age
 const domain = await checkDomain('phantom-wallet.xyz')
 // { level: 'RED', reason: 'Hostname contains "phantom" but is not a canonical phantom domain...', confidence: 0.95 }
 
-// Token risk — on-chain checks + GoPlus + Jupiter intelligence
+// Token risk, on-chain checks + GoPlus + Jupiter intelligence
 const token = await checkTokenRisk('EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v')
 // { level: 'GREEN', score: 2, reasons: [], intel: { jupiter: { organicScore: 92, isVerified: true, isSus: null, ... } } }
 
-// Transaction decoder — streams Claude output token by token
+// Transaction decoder, streams Claude output token by token
 for await (const chunk of decodeTransaction(serializedTx)) {
   process.stdout.write(chunk)
 }
@@ -289,8 +302,8 @@ All functions are cache-first (Upstash Redis) and circuit-breakered. An outage a
 | On-chain oracle | Anchor / Rust, Solana |
 | Backend | Vercel Edge Functions (production), Node.js HTTP (local dev) |
 | Database | Supabase (PostgreSQL) |
-| Cache | Upstash Redis — cache-first on all SDK calls |
-| AI | Claude Haiku 4.5 — streaming tx decode, < 400ms first token |
+| Cache | Upstash Redis, cache-first on all SDK calls |
+| AI | Claude Haiku 4.5, streaming tx decode, < 400ms first token |
 | RPC | Helius -> Triton -> RPC Fast -> public (circuit-breakered fallback chain) |
 | Threat intel | ScamSniffer (60k domains), GoPlus Security, Jupiter Tokens v2 + Price v3, RDAP |
 
@@ -304,7 +317,7 @@ Walour is a security product, so its own posture is published.
 
 **Audit + remediation:** A pre-submission security audit closed **4 CRITICAL + 20 HIGH + 22 MEDIUM + 12 LOW** findings across SDK, worker, extension, and the Anchor program. Highlights: Sybil-resistant PDA seed namespacing, prompt-injection wrapper on all Claude calls, owner+discriminator verification on every on-chain account read, body-size + hostname + rate-limit guards on every public worker endpoint, Supabase RLS hardened with CHECK constraints. Full audit and remediation logs are kept internally; available on request.
 
-**Deployment requirement — Vercel cron auth:** Vercel cron does not support custom Authorization headers in `vercel.json`. Instead Vercel auto-injects the value of the `CRON_SECRET` env var as `Authorization: Bearer <CRON_SECRET>` on every scheduled invocation. Before deploying:
+**Deployment requirement, Vercel cron auth:** Vercel cron does not support custom Authorization headers in `vercel.json`. Instead Vercel auto-injects the value of the `CRON_SECRET` env var as `Authorization: Bearer <CRON_SECRET>` on every scheduled invocation. Before deploying:
 
 1. In `apps/worker/.env` set `WALOUR_CRON_SECRET` to a 32-byte hex string (`node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`).
 2. In Vercel project env, set BOTH `WALOUR_CRON_SECRET` AND `CRON_SECRET` to the same value.
@@ -324,12 +337,12 @@ curl -s -o /dev/null -w "purge POST: %{http_code}\n" -X POST http://localhost:30
 # 3. Hostname input validation (expect 400)
 curl -s -o /dev/null -w "%{http_code}\n" "http://localhost:3001/api/scan?hostname=%3Cscript%3E"
 
-# 4. Supabase RLS — drain_blocked_events should have a CHECK-constrained policy
+# 4. Supabase RLS, drain_blocked_events should have a CHECK-constrained policy
 #    (run via the Supabase SQL editor under the project's anon role)
 SELECT policyname, with_check FROM pg_policies WHERE tablename = 'drain_blocked_events';
 SELECT conname FROM pg_constraint WHERE conrelid = 'public.drain_blocked_events'::regclass AND contype = 'c';
 
-# 5. Oracle program — Sybil corroboration must fail
+# 5. Oracle program, Sybil corroboration must fail
 cd walour && anchor test --skip-deploy
 ```
 

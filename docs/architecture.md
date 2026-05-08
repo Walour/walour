@@ -30,7 +30,7 @@ F-SDK-01   F-SDK-02                       F-SDK-03
 Token      Transaction                    URL/Domain
 Risk       Decoder                        Check
 Scorer     (Claude                        (Homoglyph +
-(Helius    Sonnet 4.6)                    Corpus +
+(Helius    Haiku 4.5)                    Corpus +
 + GoPlus)                                 GoPlus)
     │          │                              │
     └──────────┴──────────────────────────────┘
@@ -125,7 +125,7 @@ F-SDK-00 worker
 - Scam Sniffer: 0.85
 - GoPlus: 0.80
 - Community report: 0.40 (until corroborated)
-- Twitter scrape: 0.05 (single-source signals — must be corroborated to clear AMBER)
+- Twitter scrape: 0.05 (single-source signals, must be corroborated to clear AMBER)
 
 Confidence accumulates on repeated sightings (`+= delta * 0.1`) and is capped at 1.0.
 
@@ -156,12 +156,12 @@ ThreatReport PDA (authority fast-track)
 ```
 
 **Instructions:**
-- `initialize()` — one-time bootstrap, creates OracleConfig + Treasury
-- `submit_report(address, threat_type, evidence_url)` — permissionless community submit. Charges 0.01 SOL into Treasury. Namespaced PDA per reporter — first-writer squat impossible.
-- `authority_submit_report(...)` — authority-cosigned fast-track. Uses legacy seed for canonical entries. `has_one = authority` constraint on OracleConfig.
-- `corroborate_report(address, first_reporter)` — permissionless. Rejects if `signer == report.first_reporter`. Confidence: `40 + (corroborations × 5)`, capped at 100.
-- `update_confidence(address, new_score)` — `has_one = authority` declarative check.
-- `transfer_authority(new_authority)` — governance handoff.
+- `initialize()`, one-time bootstrap, creates OracleConfig + Treasury
+- `submit_report(address, threat_type, evidence_url)`, permissionless community submit. Charges 0.01 SOL into Treasury. Namespaced PDA per reporter, first-writer squat impossible.
+- `authority_submit_report(...)`, authority-cosigned fast-track. Uses legacy seed for canonical entries. `has_one = authority` constraint on OracleConfig.
+- `corroborate_report(address, first_reporter)`, permissionless. Rejects if `signer == report.first_reporter`. Confidence: `40 + (corroborations × 5)`, capped at 100.
+- `update_confidence(address, new_score)`, `has_one = authority` declarative check.
+- `transfer_authority(new_authority)`, governance handoff.
 
 **Forward compatibility:** every account carries a `version: u8` byte. `ThreatType` is `#[non_exhaustive]`. SDK fails-loud on unknown versions instead of silently misinterpreting bytes.
 
@@ -175,7 +175,7 @@ Ingestion worker promotes high-confidence Supabase entries to devnet PDAs via `a
 
 | Key | TTL | Notes |
 |---|---|---|
-| `token:risk:{mint}` | 60s | Short TTL — token state changes fast |
+| `token:risk:{mint}` | 60s | Short TTL, token state changes fast |
 | `tx:decode:{programId}:{ixDiscriminator}` | 24h | Instruction shapes are stable |
 | `address:threat:{pubkey}` | 5 min | Corpus updates every 15 min |
 | `domain:risk:{hostname}` | 1h | Domain reputations are slow-moving |
@@ -189,8 +189,8 @@ All external dependencies wrap in a circuit breaker:
 | Dependency | Primary | Fallback | Last Resort |
 |---|---|---|---|
 | RPC | Helius | Triton | Solana public RPC |
-| LLM | Claude Haiku 4.5 | — | Cached generic warning |
-| Threat intel | Walour corpus | GoPlus Security API | — |
+| LLM | Claude Haiku 4.5 |, | Cached generic warning |
+| Threat intel | Walour corpus | GoPlus Security API |, |
 
 Threshold: 3 failures / 60s → circuit opens → 30s cooldown → half-open retry.
 
@@ -202,10 +202,10 @@ Every prevented signing event emits `DrainBlockedEvent` to Supabase:
 
 ```ts
 DrainBlockedEvent {
-  event_id: string                  // uuid v4 — CHECK constraint enforces format
+  event_id: string                  // uuid v4, CHECK constraint enforces format
   timestamp: number                 // unix ms
-  wallet_pubkey: string | null      // base58 32-44 chars — CHECK constraint; null when extension can't read pubkey
-  blocked_tx_hash: string | null    // base58 64-88 chars — CHECK constraint; null when not yet known
+  wallet_pubkey: string | null      // base58 32-44 chars, CHECK constraint; null when extension can't read pubkey
+  blocked_tx_hash: string | null    // base58 64-88 chars, CHECK constraint; null when not yet known
   drainer_target?: string
   block_reason: 'phishing_domain' | 'malicious_token' | 'known_drainer' | 'ai_flagged_transfer' | 'setauthority_detected' | 'user_blocked' | 'auto_blocked'
   estimated_sol_saved: number
@@ -222,7 +222,7 @@ Aggregated on the public dashboard at `walour.io/stats`.
 
 ---
 
-## 3. Data Flow — Transaction Interception
+## 3. Data Flow, Transaction Interception
 
 ```
 1. User clicks "Sign" in wallet popup

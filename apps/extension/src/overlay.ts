@@ -193,7 +193,13 @@ const OVERLAY_CSS = `
     letter-spacing: 0.06em;
     padding-top: 2px;
   }
-  .walour-text { color: var(--text); line-height: 1.45; }
+  .walour-text {
+    color: var(--text);
+    line-height: 1.45;
+    min-width: 0;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
   .walour-stream { white-space: pre-wrap; }
 
   /* === Actions === */

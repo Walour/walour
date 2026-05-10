@@ -246,8 +246,11 @@ if (typeof (window as any).__walour_content_injected === 'undefined') {
     } else if (msg.type === 'STREAM_CHUNK') {
       appendStream(msg.chunk as string)
     } else if (msg.type === 'STREAM_DONE') {
-      updateRow('tx', 'GREEN', null)
+      // TX row dot should reflect the actual transaction severity, not always green.
+      // Use the worst of domain + token signals — the streamed AI explanation text
+      // already reflects the same threats, so the dot needs to match.
       const overall = worstLevel(_scanDomainLevel, _scanTokenLevel)
+      updateRow('tx', overall, null)
       // Confidence: use real data if available, otherwise reflect how thorough the check was
       const confidence = _scanConfidence > 0
         ? _scanConfidence

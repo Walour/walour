@@ -74,15 +74,52 @@ function adaptForVercel(handler2) {
   };
 }
 
+// src/lib/cron-auth.ts
+function unauthorized() {
+  return new Response(
+    JSON.stringify({ error: "unauthorized" }),
+    { status: 401, headers: { "Content-Type": "application/json" } }
+  );
+}
+function bearerMatches(authHeader, secret) {
+  const expected = `Bearer ${secret}`;
+  if (authHeader.length !== expected.length) return false;
+  let mismatch = 0;
+  for (let i = 0; i < expected.length; i++) {
+    mismatch |= authHeader.charCodeAt(i) ^ expected.charCodeAt(i);
+  }
+  return mismatch === 0;
+}
+function verifyCronSecret(req) {
+  const walourSecret = process.env.WALOUR_CRON_SECRET;
+  const vercelSecret = process.env.CRON_SECRET;
+  if (!walourSecret && !vercelSecret) {
+    console.error("[cron-auth] Neither WALOUR_CRON_SECRET nor CRON_SECRET configured \u2014 refusing all requests");
+    return {
+      ok: false,
+      response: new Response(
+        JSON.stringify({ error: "server misconfigured" }),
+        { status: 500, headers: { "Content-Type": "application/json" } }
+      )
+    };
+  }
+  const auth = req.headers.get("authorization") ?? "";
+  const ok = walourSecret && bearerMatches(auth, walourSecret) || vercelSecret && bearerMatches(auth, vercelSecret);
+  if (!ok) return { ok: false, response: unauthorized() };
+  return { ok: true };
+}
+
 // src/ingest.ts
 var TIMEOUT_MS = 55e3;
 var FETCH_TIMEOUT_MS = 15e3;
 var SOURCE_WEIGHTS = {
-  chainabuse: 0.9,
   scam_sniffer: 0.85,
   goplus: 0.8,
   community: 0.4,
-  twitter: 0.3
+  // M18: Twitter is unreliable as a primary source — addresses extracted from
+  // tweet text are easily injected. Down-weighted to 0.05 so it can only
+  // corroborate, not flag on its own.
+  twitter: 0.05
 };
 var SOLANA_BASE58_RE = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
 var DOMAIN_RE = /^[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+$/;
@@ -119,55 +156,8 @@ function withTimeout(promise, ms) {
     )
   ]);
 }
-async function fetchChainabuse() {
-  try {
-    const res2 = await withTimeout(
-      fetch("https://api.chainabuse.com/v0/reports?chain=solana&limit=500", {
-        headers: {
-          "User-Agent": "Walour-Ingest/1.0",
-          Accept: "application/json"
-        }
-      }),
-      FETCH_TIMEOUT_MS
-    );
-    if (res2.ok) {
-      const json2 = await res2.json();
-      const reports = json2?.reports ?? [];
-      if (reports.length > 0) {
-        return reports.map((r) => ({
-          address: r.address ?? r.reportedAddress ?? "",
-          type: normaliseType(r.type ?? r.category),
-          source: "chainabuse",
-          evidence_url: r.evidenceUrl ?? null
-        }));
-      }
-    }
-    console.warn(`[ingest] Chainabuse REST returned HTTP ${res2.status} \u2014 trying GraphQL`);
-  } catch (err) {
-    console.warn(`[ingest] Chainabuse REST threw: ${err instanceof Error ? err.message : String(err)} \u2014 trying GraphQL`);
-  }
-  const body = JSON.stringify({
-    query: `query { reports(chain: "SOL", limit: 500) { address type { type } reportedUrl } }`
-  });
-  const res = await withTimeout(
-    fetch("https://api.chainabuse.com/graphql", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "User-Agent": "Walour-Ingest/1.0" },
-      body
-    }),
-    FETCH_TIMEOUT_MS
-  );
-  if (!res.ok) throw new Error(`Chainabuse GraphQL HTTP ${res.status}`);
-  const json = await res.json();
-  return (json?.data?.reports ?? []).map((r) => ({
-    address: r.address ?? "",
-    type: normaliseType(r.type?.type),
-    source: "chainabuse",
-    evidence_url: r.reportedUrl ?? null
-  }));
-}
-var SCAM_SNIFFER_ALL_URL = "https://raw.githubusercontent.com/scamsniffer/scam-database/main/blacklist/all.json";
-var SCAM_SNIFFER_DOMAIN_LIMIT = 1e4;
+var SCAM_SNIFFER_ALL_URL = "https://raw.githubusercontent.com/scamsniffer/scam-database/7eb7b2669ef0d12e54ea10e4da76113644bc6402/blacklist/all.json";
+var SCAM_SNIFFER_DOMAIN_LIMIT = 6e4;
 async function fetchScamSniffer() {
   const res = await withTimeout(
     fetch(SCAM_SNIFFER_ALL_URL, { headers: { "User-Agent": "Walour-Ingest/1.0" } }),
@@ -192,8 +182,9 @@ var GOPLUS_SEED_MINTS = [
 async function fetchGoPlus() {
   if (GOPLUS_SEED_MINTS.length === 0) return [];
   const addresses = GOPLUS_SEED_MINTS.join(",");
+  const apiKeyParam = process.env.GOPLUS_API_KEY ? `&apikey=${process.env.GOPLUS_API_KEY}` : "";
   const res = await withTimeout(
-    fetch(`https://api.gopluslabs.io/api/v1/token_security/solana?contract_addresses=${addresses}`, {
+    fetch(`https://api.gopluslabs.io/api/v1/solana/token_security?contract_addresses=${addresses}${apiKeyParam}`, {
       headers: { "User-Agent": "Walour-Ingest/1.0", Accept: "application/json" }
     }),
     FETCH_TIMEOUT_MS
@@ -202,7 +193,8 @@ async function fetchGoPlus() {
   const json = await res.json();
   const entries = [];
   for (const [addr, data] of Object.entries(json?.result ?? {})) {
-    const isRisky = data.is_mintable === "1" || data.can_take_back_ownership === "1" || data.owner_change_balance === "1";
+    if (data.trusted_token === 1) continue;
+    const isRisky = data.mintable?.status === "1" || data.freezable?.status === "1" || data.transfer_fee?.status === "1";
     if (isRisky) {
       entries.push({
         address: addr,
@@ -236,9 +228,10 @@ async function fetchTwitter() {
   if (!res.ok) throw new Error(`Twitter API HTTP ${res.status}`);
   const data = await res.json();
   const rawEntries = [];
+  const MAX_ADDRESSES_PER_TWEET = 3;
   for (const tweet of data?.data ?? []) {
     const text = tweet.text ?? "";
-    const addressMatches = text.match(/[1-9A-HJ-NP-Za-km-z]{32,44}/g) ?? [];
+    const addressMatches = (text.match(/[1-9A-HJ-NP-Za-km-z]{32,44}/g) ?? []).slice(0, MAX_ADDRESSES_PER_TWEET);
     for (const address of addressMatches) {
       if (address.length < 32) continue;
       const evidenceUrl = tweet.entities?.urls?.[0]?.expanded_url ?? null;
@@ -329,7 +322,9 @@ async function runSource(supabase, name, fetcher) {
     return [];
   }
 }
-async function handler(_req) {
+async function handler(req) {
+  const auth = verifyCronSecret(req);
+  if (!auth.ok) return auth.response;
   const start = Date.now();
   const supabase = (0, import_supabase_js.createClient)(
     process.env.SUPABASE_URL,
@@ -342,7 +337,6 @@ async function handler(_req) {
   try {
     allEntries = await Promise.race([
       Promise.all([
-        runSource(supabase, "chainabuse", fetchChainabuse),
         runSource(supabase, "scam_sniffer", fetchScamSniffer),
         runSource(supabase, "goplus", fetchGoPlus),
         runSource(supabase, "twitter", fetchTwitter)

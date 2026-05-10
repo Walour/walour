@@ -74,18 +74,70 @@ function adaptForVercel(handler2) {
   };
 }
 
+// src/lib/cron-auth.ts
+function unauthorized() {
+  return new Response(
+    JSON.stringify({ error: "unauthorized" }),
+    { status: 401, headers: { "Content-Type": "application/json" } }
+  );
+}
+function bearerMatches(authHeader, secret) {
+  const expected = `Bearer ${secret}`;
+  if (authHeader.length !== expected.length) return false;
+  let mismatch = 0;
+  for (let i = 0; i < expected.length; i++) {
+    mismatch |= authHeader.charCodeAt(i) ^ expected.charCodeAt(i);
+  }
+  return mismatch === 0;
+}
+function verifyCronSecret(req) {
+  const walourSecret = process.env.WALOUR_CRON_SECRET;
+  const vercelSecret = process.env.CRON_SECRET;
+  if (!walourSecret && !vercelSecret) {
+    console.error("[cron-auth] Neither WALOUR_CRON_SECRET nor CRON_SECRET configured \u2014 refusing all requests");
+    return {
+      ok: false,
+      response: new Response(
+        JSON.stringify({ error: "server misconfigured" }),
+        { status: 500, headers: { "Content-Type": "application/json" } }
+      )
+    };
+  }
+  const auth = req.headers.get("authorization") ?? "";
+  const ok = walourSecret && bearerMatches(auth, walourSecret) || vercelSecret && bearerMatches(auth, vercelSecret);
+  if (!ok) return { ok: false, response: unauthorized() };
+  return { ok: true };
+}
+
+// src/lib/safe-error.ts
+function safeError(err, fallback) {
+  if (err instanceof Error) {
+    console.error("[walour]", err.message, err.stack);
+  } else {
+    console.error("[walour]", err);
+  }
+  return fallback;
+}
+
 // src/purge.ts
-async function handler(_req) {
+async function handler(req) {
+  if (req.method !== "POST") {
+    return new Response(
+      JSON.stringify({ error: "method not allowed" }),
+      { status: 405, headers: { "Content-Type": "application/json", "Allow": "POST" } }
+    );
+  }
+  const auth = verifyCronSecret(req);
+  if (!auth.ok) return auth.response;
   const supabase = (0, import_supabase_js.createClient)(
     process.env.SUPABASE_URL,
     process.env.SUPABASE_SERVICE_KEY
   );
   const start = Date.now();
-  const { data, error, count } = await supabase.from("threat_reports").delete({ count: "exact" }).lt("confidence", 0.2).lt("last_updated", new Date(Date.now() - 90 * 24 * 60 * 60 * 1e3).toISOString());
+  const { error, count } = await supabase.from("threat_reports").delete({ count: "exact" }).lt("confidence", 0.2).lt("last_updated", new Date(Date.now() - 90 * 24 * 60 * 60 * 1e3).toISOString());
   if (error) {
-    console.error("[purge] Supabase delete failed:", error.message);
     return Response.json(
-      { ok: false, error: error.message },
+      { ok: false, error: safeError(error, "purge failed") },
       { status: 500 }
     );
   }

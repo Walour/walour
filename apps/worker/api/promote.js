@@ -86,6 +86,51 @@ function adaptForVercel(handler2) {
   };
 }
 
+// src/lib/cron-auth.ts
+function unauthorized() {
+  return new Response(
+    JSON.stringify({ error: "unauthorized" }),
+    { status: 401, headers: { "Content-Type": "application/json" } }
+  );
+}
+function bearerMatches(authHeader, secret) {
+  const expected = `Bearer ${secret}`;
+  if (authHeader.length !== expected.length) return false;
+  let mismatch = 0;
+  for (let i = 0; i < expected.length; i++) {
+    mismatch |= authHeader.charCodeAt(i) ^ expected.charCodeAt(i);
+  }
+  return mismatch === 0;
+}
+function verifyCronSecret(req) {
+  const walourSecret = process.env.WALOUR_CRON_SECRET;
+  const vercelSecret = process.env.CRON_SECRET;
+  if (!walourSecret && !vercelSecret) {
+    console.error("[cron-auth] Neither WALOUR_CRON_SECRET nor CRON_SECRET configured \u2014 refusing all requests");
+    return {
+      ok: false,
+      response: new Response(
+        JSON.stringify({ error: "server misconfigured" }),
+        { status: 500, headers: { "Content-Type": "application/json" } }
+      )
+    };
+  }
+  const auth = req.headers.get("authorization") ?? "";
+  const ok = walourSecret && bearerMatches(auth, walourSecret) || vercelSecret && bearerMatches(auth, vercelSecret);
+  if (!ok) return { ok: false, response: unauthorized() };
+  return { ok: true };
+}
+
+// src/lib/safe-error.ts
+function safeError(err, fallback) {
+  if (err instanceof Error) {
+    console.error("[walour]", err.message, err.stack);
+  } else {
+    console.error("[walour]", err);
+  }
+  return fallback;
+}
+
 // src/promote.ts
 var PROMOTE_IDL = {
   version: "0.1.0",
@@ -152,9 +197,11 @@ var PROMOTE_IDL = {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
 };
 async function handler(req) {
-  if (req.method !== "GET") {
-    return new Response("Method Not Allowed", { status: 405 });
+  if (req.method !== "GET" && req.method !== "POST") {
+    return new Response("Method Not Allowed", { status: 405, headers: { "Allow": "GET, POST" } });
   }
+  const auth = verifyCronSecret(req);
+  if (!auth.ok) return auth.response;
   const startMs = Date.now();
   const supabaseUrl = process.env.SUPABASE_URL;
   const supabaseKey = process.env.SUPABASE_SERVICE_KEY;
@@ -204,6 +251,11 @@ async function handler(req) {
         [Buffer.from("threat"), address.toBuffer()],
         programId
       );
+      const pdaInfo = await connection.getAccountInfo(threatReportPda);
+      if (!pdaInfo) {
+        console.warn(`[promote] PDA not found on-chain for ${row.address} \u2014 skipping`);
+        continue;
+      }
       const onChainScore = Math.min(100, Math.round(row.confidence * 100));
       await program.methods.updateConfidence(address, onChainScore).accounts({
         threatReport: threatReportPda,
@@ -218,7 +270,7 @@ async function handler(req) {
       promoted++;
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
-      console.error(`[promote] Failed to promote ${row.address}:`, msg);
+      safeError(err, "promote-row-failed");
       await supabase.from("outages").insert({
         service: "promote-worker",
         error: msg,

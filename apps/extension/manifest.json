@@ -9,18 +9,7 @@
     "activeTab"
   ],
   "host_permissions": [
-    "https://jup.ag/*",
-    "https://raydium.io/*",
-    "https://orca.so/*",
-    "https://drift.trade/*",
-    "https://app.marinade.finance/*",
-    "https://app.marginfi.com/*",
-    "https://app.kamino.finance/*",
-    "https://phantom.app/*",
-    "https://solflare.com/*",
-    "https://www.backpack.app/*",
-    "https://magiceden.io/*",
-    "https://www.tensor.trade/*",
+    "https://*/*",
     "http://localhost:*/*",
     "http://127.0.0.1:*/*"
   ],
@@ -31,18 +20,7 @@
   "content_scripts": [
     {
       "matches": [
-        "https://jup.ag/*",
-        "https://raydium.io/*",
-        "https://orca.so/*",
-        "https://drift.trade/*",
-        "https://app.marinade.finance/*",
-        "https://app.marginfi.com/*",
-        "https://app.kamino.finance/*",
-        "https://phantom.app/*",
-        "https://solflare.com/*",
-        "https://www.backpack.app/*",
-        "https://magiceden.io/*",
-        "https://www.tensor.trade/*",
+        "https://*/*",
         "http://localhost:*/*",
         "http://127.0.0.1:*/*"
       ],
@@ -52,18 +30,7 @@
     },
     {
       "matches": [
-        "https://jup.ag/*",
-        "https://raydium.io/*",
-        "https://orca.so/*",
-        "https://drift.trade/*",
-        "https://app.marinade.finance/*",
-        "https://app.marginfi.com/*",
-        "https://app.kamino.finance/*",
-        "https://phantom.app/*",
-        "https://solflare.com/*",
-        "https://www.backpack.app/*",
-        "https://magiceden.io/*",
-        "https://www.tensor.trade/*",
+        "https://*/*",
         "http://localhost:*/*",
         "http://127.0.0.1:*/*"
       ],

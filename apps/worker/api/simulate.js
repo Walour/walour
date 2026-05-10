@@ -5249,6 +5249,38 @@ function safeError(err, fallback) {
   return fallback;
 }
 
+// src/lib/cors.ts
+var WEB_ORIGIN_ALLOWLIST = /* @__PURE__ */ new Set([
+  "https://walour.io",
+  "https://www.walour.io",
+  "https://walour.vercel.app"
+]);
+var LOCALHOST_RE = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/;
+var CHROME_EXT_RE = /^chrome-extension:\/\/[a-z]{32}$/;
+function allowedOrigin(req) {
+  if (process.env.NODE_ENV !== "production") return "*";
+  const origin = req.headers.get("Origin") ?? "";
+  if (!origin) return "";
+  if (CHROME_EXT_RE.test(origin)) return origin;
+  if (WEB_ORIGIN_ALLOWLIST.has(origin)) return origin;
+  if (LOCALHOST_RE.test(origin)) return origin;
+  if (/^https:\/\/walour-[a-z0-9-]+\.vercel\.app$/.test(origin)) return origin;
+  return "";
+}
+function corsHeaders(req, methods = "GET, OPTIONS") {
+  const origin = allowedOrigin(req);
+  const headers = {
+    "Access-Control-Allow-Methods": methods,
+    "Access-Control-Allow-Headers": "Content-Type",
+    "Vary": "Origin"
+  };
+  if (origin) headers["Access-Control-Allow-Origin"] = origin;
+  return headers;
+}
+function corsPreflight(req, methods = "GET, OPTIONS") {
+  return new Response(null, { status: 200, headers: corsHeaders(req, methods) });
+}
+
 // src/simulate.ts
 var config = { runtime: "edge" };
 var MAX_BODY_BYTES = 64 * 1024;
@@ -5282,17 +5314,12 @@ function getConnection(cluster = "mainnet") {
   return new import_web3.Connection(url, "confirmed");
 }
 async function handler(req) {
-  const ALLOWED_ORIGIN = process.env.NODE_ENV === "development" ? "*" : "chrome-extension://*";
-  const corsHeaders = {
-    "Access-Control-Allow-Origin": ALLOWED_ORIGIN,
-    "Access-Control-Allow-Methods": "POST, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type"
-  };
-  if (req.method === "OPTIONS") return new Response(null, { status: 200, headers: corsHeaders });
+  const cors = corsHeaders(req, "POST, OPTIONS");
+  if (req.method === "OPTIONS") return corsPreflight(req, "POST, OPTIONS");
   if (req.method !== "POST") {
     return new Response(JSON.stringify({ error: "Method not allowed" }), {
       status: 405,
-      headers: { ...corsHeaders, "Content-Type": "application/json" }
+      headers: { ...cors, "Content-Type": "application/json" }
     });
   }
   const ip = clientIpFrom({
@@ -5300,12 +5327,12 @@ async function handler(req) {
     socket: void 0
   });
   const rl = await enforceRateLimit("simulate", ip, 10, 60);
-  if (!rl.ok) return rateLimitedResponse(rl.retryAfter, corsHeaders);
+  if (!rl.ok) return rateLimitedResponse(rl.retryAfter, cors);
   const contentLength = parseInt(req.headers.get("content-length") ?? "0", 10);
   if (contentLength >= MAX_BODY_BYTES) {
     return new Response(JSON.stringify({ error: "request body too large" }), {
       status: 413,
-      headers: { ...corsHeaders, "Content-Type": "application/json" }
+      headers: { ...cors, "Content-Type": "application/json" }
     });
   }
   const url = new URL(req.url, "http://localhost");
@@ -5315,13 +5342,13 @@ async function handler(req) {
     if (!txBase64) {
       return new Response(JSON.stringify({ success: false, error: "txBase64 required" }), {
         status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" }
+        headers: { ...cors, "Content-Type": "application/json" }
       });
     }
     if (txBase64.length > MAX_TX_BASE64_LEN) {
       return new Response(JSON.stringify({ success: false, error: "txBase64 too long" }), {
         status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" }
+        headers: { ...cors, "Content-Type": "application/json" }
       });
     }
     const txBytes = Buffer.from(txBase64, "base64");
@@ -5340,7 +5367,7 @@ async function handler(req) {
           solChangeLamports: 0,
           deltas: []
         }),
-        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { status: 200, headers: { ...cors, "Content-Type": "application/json" } }
       );
     }
     const simVal = sim.value;
@@ -5382,7 +5409,7 @@ async function handler(req) {
     const result = { success: true, solChangeLamports, deltas, cluster: requestedCluster };
     return new Response(JSON.stringify(result), {
       status: 200,
-      headers: { ...corsHeaders, "Content-Type": "application/json" }
+      headers: { ...cors, "Content-Type": "application/json" }
     });
   } catch (err) {
     return new Response(
@@ -5393,7 +5420,7 @@ async function handler(req) {
         solChangeLamports: 0,
         deltas: []
       }),
-      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      { status: 200, headers: { ...cors, "Content-Type": "application/json" } }
     );
   }
 }

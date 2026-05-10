@@ -5297,6 +5297,38 @@ function safeError(err, fallback) {
   return fallback;
 }
 
+// src/lib/cors.ts
+var WEB_ORIGIN_ALLOWLIST = /* @__PURE__ */ new Set([
+  "https://walour.io",
+  "https://www.walour.io",
+  "https://walour.vercel.app"
+]);
+var LOCALHOST_RE = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/;
+var CHROME_EXT_RE = /^chrome-extension:\/\/[a-z]{32}$/;
+function allowedOrigin(req) {
+  if (process.env.NODE_ENV !== "production") return "*";
+  const origin = req.headers.get("Origin") ?? "";
+  if (!origin) return "";
+  if (CHROME_EXT_RE.test(origin)) return origin;
+  if (WEB_ORIGIN_ALLOWLIST.has(origin)) return origin;
+  if (LOCALHOST_RE.test(origin)) return origin;
+  if (/^https:\/\/walour-[a-z0-9-]+\.vercel\.app$/.test(origin)) return origin;
+  return "";
+}
+function corsHeaders(req, methods = "GET, OPTIONS") {
+  const origin = allowedOrigin(req);
+  const headers = {
+    "Access-Control-Allow-Methods": methods,
+    "Access-Control-Allow-Headers": "Content-Type",
+    "Vary": "Origin"
+  };
+  if (origin) headers["Access-Control-Allow-Origin"] = origin;
+  return headers;
+}
+function corsPreflight(req, methods = "GET, OPTIONS") {
+  return new Response(null, { status: 200, headers: corsHeaders(req, methods) });
+}
+
 // src/scan.ts
 var KNOWN_PROGRAMS = /* @__PURE__ */ new Set([
   "11111111111111111111111111111111",
@@ -5306,9 +5338,6 @@ var KNOWN_PROGRAMS = /* @__PURE__ */ new Set([
   "ComputeBudget111111111111111111111111111111",
   "JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4"
 ]);
-if (process.env.NODE_ENV === "production" && !process.env.EXTENSION_ID) {
-  throw new Error("EXTENSION_ID required in production");
-}
 var HOSTNAME_RE = /^[A-Za-z0-9._-]+$/;
 var MAX_LOOKUP_ACCOUNTS = 32;
 function getConnection() {
@@ -5368,19 +5397,14 @@ function findLikelyMint(accounts) {
   return null;
 }
 async function handler(req) {
-  const ALLOWED_ORIGIN = process.env.NODE_ENV === "development" ? "*" : `chrome-extension://${process.env.EXTENSION_ID}`;
-  const corsHeaders = {
-    "Access-Control-Allow-Origin": ALLOWED_ORIGIN,
-    "Access-Control-Allow-Methods": "GET, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type"
-  };
+  const cors = corsHeaders(req, "GET, OPTIONS");
   if (req.method === "OPTIONS") {
-    return new Response(null, { status: 200, headers: corsHeaders });
+    return corsPreflight(req, "GET, OPTIONS");
   }
   if (req.method !== "GET") {
     return new Response(JSON.stringify({ error: "Method not allowed" }), {
       status: 405,
-      headers: { ...corsHeaders, "Content-Type": "application/json" }
+      headers: { ...cors, "Content-Type": "application/json" }
     });
   }
   const ip = clientIpFrom({
@@ -5388,14 +5412,14 @@ async function handler(req) {
     socket: void 0
   });
   const rl = await enforceRateLimit("scan", ip, 30, 60);
-  if (!rl.ok) return rateLimitedResponse(rl.retryAfter, corsHeaders);
+  if (!rl.ok) return rateLimitedResponse(rl.retryAfter, cors);
   const url = new URL(req.url, "http://localhost");
   const hostname = url.searchParams.get("hostname");
   const txParam = url.searchParams.get("tx");
   if (!hostname || hostname.length > 256 || !HOSTNAME_RE.test(hostname)) {
     return new Response(JSON.stringify({ error: "invalid hostname" }), {
       status: 400,
-      headers: { ...corsHeaders, "Content-Type": "application/json" }
+      headers: { ...cors, "Content-Type": "application/json" }
     });
   }
   const connection = getConnection();
@@ -5457,7 +5481,7 @@ async function handler(req) {
     JSON.stringify(responseBody),
     {
       status: 200,
-      headers: { ...corsHeaders, "Content-Type": "application/json" }
+      headers: { ...cors, "Content-Type": "application/json" }
     }
   );
 }

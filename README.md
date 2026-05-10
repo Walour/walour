@@ -32,6 +32,7 @@ Walour was built for and submitted to [Colosseum Frontier 2026](https://arena.co
 | Jupiter Developer Platform | Jupiter | Jupiter Tokens v2 + Price v3 as a dedicated security intelligence layer in the SDK |
 | Security Audit Credits | Adevar Labs | Security oracle with documented threat model: PDA collision, confidence manipulation, prompt injection |
 | RPC Infrastructure Credits | RPC Fast | Third tier in the SDK RPC fallback chain (Helius -> Triton -> RPC Fast -> public) |
+| 100xDevs Side Track | 100xDevs | Builder-first track judging strong execution, real-world use case, and production-ready polish on Solana |
 
 ---
 

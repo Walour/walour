@@ -24,9 +24,6 @@
     "http://localhost:*/*",
     "http://127.0.0.1:*/*"
   ],
-  "externally_connectable": {
-    "ids": []
-  },
   "background": {
     "service_worker": "background.js",
     "type": "module"

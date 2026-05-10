@@ -11,7 +11,7 @@ export const metadata: Metadata = {
     template: '%s | Walour',
   },
   description: 'Real-time, composable threat intelligence for Solana. Protect your users before they sign.',
-  metadataBase: new URL('https://walour.com'),
+  metadataBase: new URL('https://walour.io'),
   openGraph: {
     siteName: 'Walour',
     type: 'website',

@@ -3,15 +3,7 @@ import { decodeTransaction } from '@walour/sdk'
 import { adaptForVercel } from './lib/adapt'
 import { enforceRateLimit, clientIpFrom, rateLimitedResponse } from './lib/rate-limit'
 import { safeError } from './lib/safe-error'
-
-const ALLOWED_ORIGIN =
-  process.env.NODE_ENV === 'development' ? '*' : 'chrome-extension://*'
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': ALLOWED_ORIGIN,
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type',
-}
+import { corsHeaders, corsPreflight } from './lib/cors'
 
 // H12: hard ceiling on request body size — anything larger than 64 KB is
 // rejected before the JSON parser runs.
@@ -21,14 +13,16 @@ const MAX_BODY_BYTES = 64 * 1024
 const MAX_TX_BASE64_LEN = 100_000
 
 async function handler(req: Request): Promise<Response> {
+  const cors = corsHeaders(req, 'POST, OPTIONS')
+
   if (req.method === 'OPTIONS') {
-    return new Response(null, { status: 200, headers: corsHeaders })
+    return corsPreflight(req, 'POST, OPTIONS')
   }
 
   if (req.method !== 'POST') {
     return new Response(JSON.stringify({ error: 'Method not allowed' }), {
       status: 405,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      headers: { ...cors, 'Content-Type': 'application/json' },
     })
   }
 
@@ -38,14 +32,14 @@ async function handler(req: Request): Promise<Response> {
     socket: undefined,
   })
   const rl = await enforceRateLimit('decode', ip, 10, 60)
-  if (!rl.ok) return rateLimitedResponse(rl.retryAfter, corsHeaders)
+  if (!rl.ok) return rateLimitedResponse(rl.retryAfter, cors)
 
   // H12: reject oversized bodies via Content-Length before reading.
   const contentLength = parseInt(req.headers.get('content-length') ?? '0', 10)
   if (contentLength >= MAX_BODY_BYTES) {
     return new Response(JSON.stringify({ error: 'request body too large' }), {
       status: 413,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      headers: { ...cors, 'Content-Type': 'application/json' },
     })
   }
 
@@ -56,20 +50,20 @@ async function handler(req: Request): Promise<Response> {
     if (!txBase64 || typeof txBase64 !== 'string' || txBase64.trim() === '') {
       return new Response(JSON.stringify({ error: 'txBase64 is required' }), {
         status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        headers: { ...cors, 'Content-Type': 'application/json' },
       })
     }
     // M14: explicit length cap on the base64 string (defense in depth).
     if (txBase64.length > MAX_TX_BASE64_LEN) {
       return new Response(JSON.stringify({ error: 'txBase64 too long' }), {
         status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        headers: { ...cors, 'Content-Type': 'application/json' },
       })
     }
   } catch (err) {
     return new Response(JSON.stringify({ error: safeError(err, 'invalid JSON body') }), {
       status: 400,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      headers: { ...cors, 'Content-Type': 'application/json' },
     })
   }
 
@@ -80,7 +74,7 @@ async function handler(req: Request): Promise<Response> {
   } catch (err) {
     return new Response(JSON.stringify({ error: safeError(err, 'failed to deserialize transaction') }), {
       status: 400,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      headers: { ...cors, 'Content-Type': 'application/json' },
     })
   }
 
@@ -111,7 +105,7 @@ async function handler(req: Request): Promise<Response> {
   return new Response(stream, {
     status: 200,
     headers: {
-      ...corsHeaders,
+      ...cors,
       'Content-Type': 'text/event-stream',
       'Cache-Control': 'no-cache',
     },

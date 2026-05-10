@@ -2,6 +2,7 @@ import { Connection, VersionedTransaction } from '@solana/web3.js'
 import { cacheGet, cacheSet } from '@walour/sdk/lib/cache'
 import { enforceRateLimit, clientIpFrom, rateLimitedResponse } from './lib/rate-limit'
 import { safeError } from './lib/safe-error'
+import { corsHeaders, corsPreflight } from './lib/cors'
 
 export const config = { runtime: 'edge' }
 
@@ -67,17 +68,12 @@ function getConnection(cluster: 'mainnet' | 'devnet' = 'mainnet'): Connection {
 }
 
 async function handler(req: Request): Promise<Response> {
-  const ALLOWED_ORIGIN = process.env.NODE_ENV === 'development' ? '*' : 'chrome-extension://*'
-  const corsHeaders = {
-    'Access-Control-Allow-Origin': ALLOWED_ORIGIN,
-    'Access-Control-Allow-Methods': 'POST, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type',
-  }
+  const cors = corsHeaders(req, 'POST, OPTIONS')
 
-  if (req.method === 'OPTIONS') return new Response(null, { status: 200, headers: corsHeaders })
+  if (req.method === 'OPTIONS') return corsPreflight(req, 'POST, OPTIONS')
   if (req.method !== 'POST') {
     return new Response(JSON.stringify({ error: 'Method not allowed' }), {
-      status: 405, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      status: 405, headers: { ...cors, 'Content-Type': 'application/json' },
     })
   }
 
@@ -88,13 +84,13 @@ async function handler(req: Request): Promise<Response> {
     socket: undefined,
   })
   const rl = await enforceRateLimit('simulate', ip, 10, 60)
-  if (!rl.ok) return rateLimitedResponse(rl.retryAfter, corsHeaders)
+  if (!rl.ok) return rateLimitedResponse(rl.retryAfter, cors)
 
   // H13: body size cap.
   const contentLength = parseInt(req.headers.get('content-length') ?? '0', 10)
   if (contentLength >= MAX_BODY_BYTES) {
     return new Response(JSON.stringify({ error: 'request body too large' }), {
-      status: 413, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      status: 413, headers: { ...cors, 'Content-Type': 'application/json' },
     })
   }
 
@@ -106,13 +102,13 @@ async function handler(req: Request): Promise<Response> {
     const { txBase64, signerPubkey } = await req.json() as { txBase64: string; signerPubkey?: string }
     if (!txBase64) {
       return new Response(JSON.stringify({ success: false, error: 'txBase64 required' }), {
-        status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 400, headers: { ...cors, 'Content-Type': 'application/json' },
       })
     }
     // M14: explicit length cap.
     if (txBase64.length > MAX_TX_BASE64_LEN) {
       return new Response(JSON.stringify({ success: false, error: 'txBase64 too long' }), {
-        status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 400, headers: { ...cors, 'Content-Type': 'application/json' },
       })
     }
 
@@ -136,7 +132,7 @@ async function handler(req: Request): Promise<Response> {
           solChangeLamports: 0,
           deltas: [],
         }),
-        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { status: 200, headers: { ...cors, 'Content-Type': 'application/json' } }
       )
     }
 
@@ -188,7 +184,7 @@ async function handler(req: Request): Promise<Response> {
 
     const result: SimResult = { success: true, solChangeLamports, deltas, cluster: requestedCluster }
     return new Response(JSON.stringify(result), {
-      status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      status: 200, headers: { ...cors, 'Content-Type': 'application/json' },
     })
   } catch (err) {
     // M15: never echo raw exception messages to the client.
@@ -200,7 +196,7 @@ async function handler(req: Request): Promise<Response> {
         solChangeLamports: 0,
         deltas: [],
       }),
-      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      { status: 200, headers: { ...cors, 'Content-Type': 'application/json' } }
     )
   }
 }

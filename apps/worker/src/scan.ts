@@ -3,6 +3,7 @@ import { checkDomain, checkTokenRisk, lookupAddress } from '@walour/sdk'
 import { adaptForVercel } from './lib/adapt'
 import { enforceRateLimit, clientIpFrom, rateLimitedResponse } from './lib/rate-limit'
 import { safeError } from './lib/safe-error'
+import { corsHeaders, corsPreflight } from './lib/cors'
 
 // Known program IDs to exclude from mint detection
 const KNOWN_PROGRAMS = new Set([
@@ -14,11 +15,9 @@ const KNOWN_PROGRAMS = new Set([
   'JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4',
 ])
 
-// M13: production must have EXTENSION_ID set so CORS isn't wide-open.
-// Dev (NODE_ENV !== 'production') is allowed to skip — uses '*' below.
-if (process.env.NODE_ENV === 'production' && !process.env.EXTENSION_ID) {
-  throw new Error('EXTENSION_ID required in production')
-}
+// CORS now handled by lib/cors.ts via a smart allow-list (chrome-extension://*
+// + walour.io + walour.vercel.app + localhost). EXTENSION_ID env var no longer
+// required — the chrome-extension scheme is allowed by regex.
 
 // H11: hostname validation — limit to ASCII letters, digits, dots, hyphens, underscores.
 // Anything else (script tags, slashes, query strings) is rejected up front.
@@ -99,25 +98,16 @@ function findLikelyMint(accounts: PublicKey[]): string | null {
 }
 
 async function handler(req: Request): Promise<Response> {
-  const ALLOWED_ORIGIN =
-    process.env.NODE_ENV === 'development'
-      ? '*'
-      : `chrome-extension://${process.env.EXTENSION_ID}`
-
-  const corsHeaders = {
-    'Access-Control-Allow-Origin': ALLOWED_ORIGIN,
-    'Access-Control-Allow-Methods': 'GET, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type',
-  }
+  const cors = corsHeaders(req, 'GET, OPTIONS')
 
   if (req.method === 'OPTIONS') {
-    return new Response(null, { status: 200, headers: corsHeaders })
+    return corsPreflight(req, 'GET, OPTIONS')
   }
 
   if (req.method !== 'GET') {
     return new Response(JSON.stringify({ error: 'Method not allowed' }), {
       status: 405,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      headers: { ...cors, 'Content-Type': 'application/json' },
     })
   }
 
@@ -127,7 +117,7 @@ async function handler(req: Request): Promise<Response> {
     socket: undefined,
   })
   const rl = await enforceRateLimit('scan', ip, 30, 60)
-  if (!rl.ok) return rateLimitedResponse(rl.retryAfter, corsHeaders)
+  if (!rl.ok) return rateLimitedResponse(rl.retryAfter, cors)
 
   const url = new URL(req.url, "http://localhost")
   const hostname = url.searchParams.get('hostname')
@@ -137,7 +127,7 @@ async function handler(req: Request): Promise<Response> {
   if (!hostname || hostname.length > 256 || !HOSTNAME_RE.test(hostname)) {
     return new Response(JSON.stringify({ error: 'invalid hostname' }), {
       status: 400,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      headers: { ...cors, 'Content-Type': 'application/json' },
     })
   }
 
@@ -213,7 +203,7 @@ async function handler(req: Request): Promise<Response> {
     JSON.stringify(responseBody),
     {
       status: 200,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      headers: { ...cors, 'Content-Type': 'application/json' },
     }
   )
 }

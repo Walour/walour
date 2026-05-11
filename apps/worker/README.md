@@ -15,9 +15,9 @@ Walour's backend, public scan/decode/simulate/blink endpoints plus scheduled cro
 
 | Path | Method | Schedule | Purpose |
 |---|---|---|---|
-| `/api/ingest` | POST | Every 15 minutes | Pull threats from Chainabuse, Scam Sniffer, Twitter |
-| `/api/promote` | GET | Daily | Promote high-confidence Supabase threats to on-chain oracle |
-| `/api/purge` | POST | Daily 02:00 UTC | Delete stale low-confidence entries (confidence < 0.2, not updated 90 days) |
+| `/api/ingest` | POST | Daily 00:00 UTC | Pull threats from Scam Sniffer + GoPlus into Supabase |
+| `/api/purge` | POST | Daily 02:00 UTC | Delete stale low-confidence entries |
+| `/api/promote` | GET | Daily 03:00 UTC | Promote high-confidence Supabase threats to on-chain oracle |
 
 Per-IP rate limit on public endpoints (Upstash Redis sliding window): 30/min for `/api/scan`, 10/min for `/api/decode`, `/api/simulate`, `/api/blink`. Body size cap: 64 KB on POST endpoints.
 
@@ -35,16 +35,14 @@ Set in Vercel project settings (or a local `.env` for `npm run dev`):
 | `ANTHROPIC_API_KEY` | Yes | Claude Haiku 4.5 streaming tx decoder |
 | `UPSTASH_REDIS_REST_URL` | Yes | Cache + rate-limiter backend |
 | `UPSTASH_REDIS_REST_TOKEN` | Yes | Cache + rate-limiter backend |
-| `WALOUR_CRON_SECRET` | Yes | 32-byte hex secret for cron auth (generate via `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`) |
+| `WALOUR_CRON_SECRET` | Yes | 32-byte hex secret for cron auth (see Vercel cron auth setup below) |
 | `CRON_SECRET` | Yes (Vercel) | Same value as `WALOUR_CRON_SECRET`, Vercel auto-injects this on cron invocations |
-| `WALOUR_PROGRAM_ID` | Yes | Deployed oracle program ID |
+| `WALOUR_PROGRAM_ID` | No | Deployed oracle program ID. SDK falls back to the canonical devnet program if unset. |
 | `WALOUR_ORACLE_CLUSTER` | No | `devnet` (default) or `mainnet` for oracle PDA reads |
-| `EXTENSION_ID` | Yes (prod) | Chrome extension ID for CORS allowlist |
 | `GOPLUS_API_KEY` | No | Higher rate limits on token + domain checks |
 | `JUPITER_API_KEY` | No | Token intel, organic score, isVerified, isSus |
 | `TRITON_KEY` | No | RPC fallback (rpcpool.com) |
 | `RPC_FAST_API_KEY` | No | Tertiary RPC fallback |
-| `TWITTER_BEARER_TOKEN` | No | Twitter source for ingestion (silently skipped if absent) |
 
 ---
 
@@ -76,76 +74,7 @@ vercel deploy --prod
 npm run deploy
 ```
 
-Vercel automatically picks up `vercel.json` and registers both cron jobs.
-
----
-
-## Trigger manually
-
-Cron-class endpoints require a Bearer token matching `WALOUR_CRON_SECRET` (or `CRON_SECRET`, Vercel auto-injects this on its own cron invocations):
-
-```bash
-SECRET=$(grep WALOUR_CRON_SECRET .env | cut -d= -f2)
-
-# Ingest
-curl -X POST -H "Authorization: Bearer $SECRET" https://<your-deployment>.vercel.app/api/ingest
-
-# Purge
-curl -X POST -H "Authorization: Bearer $SECRET" https://<your-deployment>.vercel.app/api/purge
-
-# Promote
-curl -X GET -H "Authorization: Bearer $SECRET" https://<your-deployment>.vercel.app/api/promote
-```
-
-Without a valid Bearer token, all three return `401`. `/api/purge` rejects non-POST methods with `405`.
-
-Example successful ingest response:
-
-```json
-{ "processed": 1482, "errors": 3, "duration_ms": 8741 }
-```
-
----
-
-## Check corpus size in Supabase
-
-Run in the Supabase SQL editor:
-
-```sql
--- Total threats by source
-select source, count(*), avg(confidence) as avg_confidence
-from threat_reports
-group by source
-order by count desc;
-
--- High-confidence threats only
-select count(*) from threat_reports where confidence >= 0.7;
-
--- Recent ingestion errors
-select * from ingestion_errors order by created_at desc limit 50;
-
--- Active outages
-select * from outages where closed_at is null;
-
--- Rows eligible for next purge run
-select count(*)
-from threat_reports
-where confidence < 0.2
-  and last_updated < now() - interval '90 days';
-```
-
----
-
-## Source weights
-
-| Source | Confidence delta | Notes |
-|--------|-----------------|-------|
-| `chainabuse` | 0.90 | Verified community reports |
-| `scam_sniffer` | 0.85 | Automated drainer detection |
-| `community` | 0.40 | User-submitted (reserved for future use) |
-| `twitter` | 0.05 | Social signal, single-source, must be corroborated to clear AMBER |
-
-Confidence accumulates on repeated sightings (`+= delta * 0.1`) and is capped at 1.0.
+Vercel automatically picks up `vercel.json` and registers the cron jobs.
 
 ---
 
@@ -157,14 +86,11 @@ Confidence accumulates on repeated sightings (`+= delta * 0.1`) and is capped at
 
 ---
 
-## API Endpoints
+## Vercel cron auth setup
 
-| Endpoint | Method | Description |
-|---|---|---|
-| `/api/scan` | GET | Domain + token risk scan. Params: `hostname`, `tx` (optional base64 tx) |
-| `/api/decode` | POST | Stream Claude Haiku explanation of a transaction. Body: `{ txBase64: string }` |
-| `/api/simulate` | POST | Pre-sign balance delta simulation. Body: `{ txBase64: string }` |
-| `/api/ingest` | GET | Cron: ingest threat data from GoPlus + ScamSniffer into Supabase |
-| `/api/promote` | GET | Cron: promote high-confidence Supabase threats to on-chain oracle |
-| `/api/purge` | GET | Cron: purge stale low-confidence threat entries (runs every 2h) |
-| `/api/blink` | GET | Dialect Blink, share a threat report as a shareable action URL |
+Vercel cron does not support custom Authorization headers in `vercel.json`. Instead Vercel auto-injects the value of the `CRON_SECRET` env var as `Authorization: Bearer <CRON_SECRET>` on every scheduled invocation. Before deploying:
+
+1. In `apps/worker/.env` set `WALOUR_CRON_SECRET` to a 32-byte hex string (`node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`).
+2. In Vercel project env, set BOTH `WALOUR_CRON_SECRET` AND `CRON_SECRET` to the same value.
+
+Without step 2, `/api/purge`, `/api/promote`, and `/api/ingest` will 401 immediately on every cron tick. `lib/cron-auth.ts` accepts either env name as a fallback so local development with only `WALOUR_CRON_SECRET` works without a separate `CRON_SECRET`.

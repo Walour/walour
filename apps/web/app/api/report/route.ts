@@ -63,8 +63,8 @@ export async function POST(req: NextRequest) {
     p_address: address,
     p_type: type,
     p_source: 'community',
-    p_confidence: 0.5,
     p_evidence_url: evidenceUrl || null,
+    p_confidence_delta: 0.4,
   } as Parameters<typeof supabase.rpc>[1]
 
   const { error } = await supabase.rpc('upsert_threat', rpcArgs)

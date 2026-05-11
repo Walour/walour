@@ -234,7 +234,7 @@ async function handler(req) {
     [Buffer.from("config")],
     programId
   );
-  const { data: rows, error: fetchErr } = await supabase.from("threat_reports").select("id, address, confidence, threat_type").gt("confidence", 0.7).or("promoted_at.is.null,promoted_at.lt." + new Date(Date.now() - 864e5).toISOString()).order("confidence", { ascending: false }).limit(10);
+  const { data: rows, error: fetchErr } = await supabase.from("threat_reports").select("address, confidence").gt("confidence", 0.7).or("promoted_at.is.null,promoted_at.lt." + new Date(Date.now() - 864e5).toISOString()).order("confidence", { ascending: false }).limit(10);
   if (fetchErr) {
     return new Response(
       JSON.stringify({ error: "Supabase fetch failed", detail: fetchErr.message }),
@@ -263,9 +263,9 @@ async function handler(req) {
         authority: authorityKeypair.publicKey,
         systemProgram: import_web3.SystemProgram.programId
       }).rpc();
-      const { error: updateErr } = await supabase.from("threat_reports").update({ promoted_at: (/* @__PURE__ */ new Date()).toISOString() }).eq("id", row.id);
+      const { error: updateErr } = await supabase.from("threat_reports").update({ promoted_at: (/* @__PURE__ */ new Date()).toISOString() }).eq("address", row.address);
       if (updateErr) {
-        console.error(`[promote] Failed to mark row ${row.id} as promoted:`, updateErr.message);
+        console.error(`[promote] Failed to mark row ${row.address} as promoted:`, updateErr.message);
       }
       promoted++;
     } catch (err) {

@@ -9,9 +9,9 @@ function $(id: string): HTMLElement | null { return document.getElementById(id) 
 function setText(id: string, value: string): void { const el = $(id); if (el) el.textContent = value }
 function setClass(el: HTMLElement | null, cls: string): void { if (el) el.className = cls }
 
-function riskToLevel(risk: string | undefined | null): 'GREEN' | 'AMBER' | 'RED' | 'checking' {
-  if (!risk) return 'checking'
-  const r = risk.toUpperCase()
+function riskToLevel(level: string | undefined | null): 'GREEN' | 'AMBER' | 'RED' | 'checking' {
+  if (!level) return 'checking'
+  const r = level.toUpperCase()
   if (r === 'RED' || r === 'HIGH' || r === 'CRITICAL') return 'RED'
   if (r === 'AMBER' || r === 'MEDIUM' || r === 'WARN' || r === 'WARNING') return 'AMBER'
   if (r === 'GREEN' || r === 'LOW' || r === 'SAFE') return 'GREEN'
@@ -33,9 +33,9 @@ function renderScanning(scan: ScanResult): void {
   const urlRow = document.querySelector('.ext-check-row[data-key="url"] .ext-check-dot') as HTMLElement | null
   const urlText = $('check-text-url')
   if (scan.domain) {
-    const lvl = riskToLevel(scan.domain.risk)
+    const lvl = riskToLevel(scan.domain.level)
     if (urlRow) urlRow.className = `ext-check-dot ${lvl}`
-    if (urlText) urlText.textContent = `${scan.domain.risk}${scan.domain.reason ? ': ' + scan.domain.reason : ''}`
+    if (urlText) urlText.textContent = `${scan.domain.level ?? ''}${scan.domain.reason ? ': ' + scan.domain.reason : ''}`
   } else {
     if (urlRow) urlRow.className = 'ext-check-dot checking'
     if (urlText) urlText.textContent = 'Checking…'
@@ -45,9 +45,10 @@ function renderScanning(scan: ScanResult): void {
   const tokRow = document.querySelector('.ext-check-row[data-key="token"] .ext-check-dot') as HTMLElement | null
   const tokText = $('check-text-token')
   if (scan.token) {
-    const lvl = riskToLevel(scan.token.risk)
+    const lvl = riskToLevel(scan.token.level)
     if (tokRow) tokRow.className = `ext-check-dot ${lvl}`
-    if (tokText) tokText.textContent = `${scan.token.risk}${scan.token.symbol ? ' · ' + scan.token.symbol : ''}`
+    const firstReason = scan.token.reasons?.[0]
+    if (tokText) tokText.textContent = `${scan.token.level ?? ''}${firstReason ? ': ' + firstReason : ''}`
   } else {
     if (tokRow) tokRow.className = 'ext-check-dot checking'
     if (tokText) tokText.textContent = 'Checking…'
@@ -99,8 +100,9 @@ function renderVerdict(scan: ScanResult): void {
   if (sub) {
     const reasons: string[] = []
     if (scan.domain?.reason) reasons.push(scan.domain.reason)
-    if (scan.token?.risk && scan.token.risk !== 'GREEN' && scan.token.risk !== 'SAFE') {
-      reasons.push(`Token: ${scan.token.risk}${scan.token.symbol ? ' (' + scan.token.symbol + ')' : ''}`)
+    if (scan.token?.level && scan.token.level !== 'GREEN') {
+      const tokenReason = scan.token.reasons?.[0]
+      reasons.push(`Token: ${scan.token.level}${tokenReason ? ': ' + tokenReason : ''}`)
     }
     sub.textContent = reasons.join(' · ') || scan.hostname || ''
   }
@@ -150,11 +152,12 @@ function renderVerdict(scan: ScanResult): void {
   if (threatsBlock && threatsList) {
     while (threatsList.firstChild) threatsList.removeChild(threatsList.firstChild)
     const threats: string[] = []
-    if (scan.domain?.risk && scan.domain.risk !== 'GREEN' && scan.domain.risk !== 'SAFE') {
-      threats.push(`Domain: ${scan.domain.risk}${scan.domain.reason ? ': ' + scan.domain.reason : ''}`)
+    if (scan.domain?.level && scan.domain.level !== 'GREEN') {
+      threats.push(`Domain: ${scan.domain.level}${scan.domain.reason ? ': ' + scan.domain.reason : ''}`)
     }
-    if (scan.token?.risk && scan.token.risk !== 'GREEN' && scan.token.risk !== 'SAFE') {
-      threats.push(`Token: ${scan.token.risk}${scan.token.symbol ? ' (' + scan.token.symbol + ')' : ''}`)
+    if (scan.token?.level && scan.token.level !== 'GREEN') {
+      const tokenReason = scan.token.reasons?.[0]
+      threats.push(`Token: ${scan.token.level}${tokenReason ? ': ' + tokenReason : ''}`)
     }
     if (threats.length === 0) {
       threatsBlock.setAttribute('hidden', '')
@@ -175,8 +178,7 @@ function renderVerdict(scan: ScanResult): void {
   }
 
   // Address card
-  const addrText = scan.hostname + (scan.token?.symbol ? ' · ' + scan.token.symbol : '')
-  setText('address-card-value', addrText || '')
+  setText('address-card-value', scan.hostname || '')
 }
 
 function applyHello(scan: ScanResult | null): void {

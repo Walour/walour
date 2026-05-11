@@ -22,10 +22,8 @@ import { safeError } from './lib/safe-error'
 // ---------------------------------------------------------------------------
 
 interface ThreatRow {
-  id: string
   address: string
   confidence: number
-  threat_type: string
 }
 
 // ---------------------------------------------------------------------------
@@ -160,7 +158,7 @@ async function handler(
   // --- Fetch candidates ---
   const { data: rows, error: fetchErr } = await supabase
     .from('threat_reports')
-    .select('id, address, confidence, threat_type')
+    .select('address, confidence')
     .gt('confidence', 0.7)
     .or('promoted_at.is.null,promoted_at.lt.' + new Date(Date.now() - 86_400_000).toISOString())
     .order('confidence', { ascending: false })
@@ -210,10 +208,10 @@ async function handler(
       const { error: updateErr } = await supabase
         .from('threat_reports')
         .update({ promoted_at: new Date().toISOString() })
-        .eq('id', row.id)
+        .eq('address', row.address)
 
       if (updateErr) {
-        console.error(`[promote] Failed to mark row ${row.id} as promoted:`, updateErr.message)
+        console.error(`[promote] Failed to mark row ${row.address} as promoted:`, updateErr.message)
       }
 
       promoted++

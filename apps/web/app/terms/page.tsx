@@ -58,9 +58,8 @@ export default function TermsPage() {
         {/* 1 */}
         <Section title="1. Acceptance of Terms">
           <P>
-            By installing the Walour Chrome extension, accessing or calling the Walour API
-            (available at <strong>walour.vercel.app</strong>), installing the{' '}
-            <strong>@walour/sdk</strong> npm package, or otherwise using any Walour service
+            By installing the Walour Chrome extension, accessing or calling the Walour API,
+            installing the <strong>@walour/sdk</strong> npm package, or otherwise using any Walour service
             (collectively, the &ldquo;Services&rdquo;), you (&ldquo;you&rdquo; or
             &ldquo;User&rdquo;) agree to be bound by these Terms of Service
             (&ldquo;Terms&rdquo;). If you do not agree, do not use the Services.

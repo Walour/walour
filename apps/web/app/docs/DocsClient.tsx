@@ -280,7 +280,7 @@ const threat = await lookupAddress(address: string)
 interface ThreatReport {
   address:       string
   type:          'drainer' | 'rug' | 'phishing_domain' | 'malicious_token'
-  source:        'chainabuse' | 'scam_sniffer' | 'community' | 'twitter'
+  source:        'on-chain' | 'scam_sniffer' | 'goplus' | 'community'
   confidence:    number        // 0-1
   evidence_url?: string
   first_seen:    string        // ISO 8601

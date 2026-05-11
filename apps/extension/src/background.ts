@@ -27,8 +27,8 @@ type IncomingMessage = ScanTxMessage | TelemetryMessage
 export interface ScanResult {
   level: 'GREEN' | 'AMBER' | 'RED' | 'UNKNOWN'
   hostname: string
-  domain: { level?: string; risk?: string; reason?: string } | null
-  token: { risk: string; symbol?: string } | null
+  domain: { level?: string; reason?: string; confidence?: number } | null
+  token: { level?: string; reasons?: string[]; score?: number } | null
   txSummary: string
   confidence: number
   updatedAt: number

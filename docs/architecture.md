@@ -53,15 +53,15 @@ Scorer     (Claude                        (Homoglyph +
   ┌────────────┐      ┌─────────────────┐
   │  Triton    │      │  Ingestion      │
   │  (fallback)│      │  Worker         │
-  └────────────┘      │  (Vercel Cron   │
-                      │   every 15 min) │
+  └────────────┘      │  (Vercel Cron,  │
+                      │   daily)        │
                       └────────┬────────┘
                                │
-               ┌───────────────┼──────────────┐
-               │               │              │
-               ▼               ▼              ▼
-         Scam Sniffer    GoPlus          Twitter v2
-         (60k domains)   token/domain    scrape
+                       ┌───────┴───────┐
+                       │               │
+                       ▼               ▼
+                 Scam Sniffer       GoPlus
+                 (60k domains)      token/domain
 ```
 
 ---
@@ -105,29 +105,21 @@ exported function
 
 ### 2.3 Threat Corpus Ingestion Worker
 
-Vercel Cron job, runs every 15 minutes.
+Vercel Cron job, runs daily (ingest 00:00 UTC, purge 02:00 UTC, promote 03:00 UTC).
 
 ```
 F-SDK-00 worker
   → fetch Scam Sniffer all.json (up to 60k phishing domains)
   → fetch GoPlus known-malicious Solana token list
-  → fetch Twitter v2 search results (if TWITTER_BEARER_TOKEN set)
   → normalize each entry (base58 validate / lowercase domain)
   → dedup against Supabase
     → exists? increment confidence + update last_updated
     → new? insert with source-weight confidence
-  → purge: confidence < 0.2 AND age > 90 days
+  → purge: stale low-confidence entries
   → done in < 60s
 ```
 
-**Source confidence weights:**
-- Chainabuse: 0.90
-- Scam Sniffer: 0.85
-- GoPlus: 0.80
-- Community report: 0.40 (until corroborated)
-- Twitter scrape: 0.05 (single-source signals, must be corroborated to clear AMBER)
-
-Confidence accumulates on repeated sightings (`+= delta * 0.1`) and is capped at 1.0.
+Source confidence is weighted per provider, accumulates on repeated sightings, and is capped at 1.0.
 
 ---
 
@@ -177,7 +169,7 @@ Ingestion worker promotes high-confidence Supabase entries to devnet PDAs via `a
 |---|---|---|
 | `token:risk:{mint}` | 60s | Short TTL, token state changes fast |
 | `tx:decode:{programId}:{ixDiscriminator}` | 24h | Instruction shapes are stable |
-| `address:threat:{pubkey}` | 5 min | Corpus updates every 15 min |
+| `address:threat:{pubkey}` | 5 min | Corpus updates daily |
 | `domain:risk:{hostname}` | 1h | Domain reputations are slow-moving |
 
 ---
@@ -299,7 +291,6 @@ create table outages (
 | GoPlus Security | Token malicious check, phishing domain check | API key |
 | Anthropic (Claude Haiku 4.5 / Haiku 4.5) | Transaction decoder, streaming output | API key |
 | Scam Sniffer | Phishing domain feed (60k domains via GitHub DB) | None (public) |
-| Twitter v2 | Scam keyword scrape | Bearer token |
 | Upstash Redis | Caching | REST token |
 | Supabase | DB + Edge Functions + PostgREST | Service role key |
 | Dialect | Blinks generation | SDK |

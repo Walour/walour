@@ -6,7 +6,7 @@
 [![Solana](https://img.shields.io/badge/Solana-devnet-9945FF)](https://solana.com)
 [![Colosseum Frontier 2026](https://img.shields.io/badge/Colosseum-Frontier%202026-FF6B35)](https://arena.colosseum.org)
 
-**Website:** [walour.io](https://www.walour.io) · **Worker API:** [walour.vercel.app](https://walour.vercel.app) · **SDK:** [`@walour/sdk` on npm](https://www.npmjs.com/package/@walour/sdk) · **Colosseum:** [arena.colosseum.org/projects/explore/walour](https://arena.colosseum.org/projects/explore/walour)
+**Website:** [walour.io](https://www.walour.io) · **SDK:** [`@walour/sdk` on npm](https://www.npmjs.com/package/@walour/sdk) · **Colosseum:** [arena.colosseum.org/projects/explore/walour](https://arena.colosseum.org/projects/explore/walour)
 
 ---
 
@@ -17,7 +17,7 @@
 | **Live demo** | https://walour.io/demo, click any scenario, see a real verdict from a real corpus hit |
 | **On-chain oracle** | [`A2pxWB5ro7h1vh4yc7kQeQ4eydV1iA3Fgy9kQ9zhaZVQ`](https://explorer.solana.com/address/A2pxWB5ro7h1vh4yc7kQeQ4eydV1iA3Fgy9kQ9zhaZVQ?cluster=devnet) on devnet, 10 threat reports indexed, Treasury PDA active |
 | **SDK** | `npm install @walour/sdk`, published, 32 KB, MIT |
-| **Threat corpus** | 59,728 indexed entries from chainabuse, scam_sniffer, twitter, community |
+| **Threat corpus** | 59,728 indexed entries sourced from ScamSniffer, GoPlus, and on-chain community corroborations |
 | **Audit** | 4 CRITICAL + 20 HIGH + 22 MEDIUM + 12 LOW findings closed pre-submission |
 | **What you can run today** | Chrome extension intercepting `signTransaction`, worker on `:3001`, Claude Haiku tx decoder streaming explanations in <400ms first-token |
 
@@ -221,8 +221,6 @@ JUPITER_API_KEY=            # Jupiter API key, organic score + audit.isSus check
                             # Free tier (60 RPM) at portal.jup.ag
                             # If absent, Jupiter checks are silently skipped
 WALOUR_PROGRAM_ID=          # Deployed oracle program ID (see programs/walour_oracle)
-EXTENSION_ID=               # Your Chrome extension ID from chrome://extensions
-TWITTER_BEARER_TOKEN=       # Optional, scam keyword scrape for corpus ingestion
 ```
 
 </details>
@@ -243,19 +241,13 @@ curl "http://localhost:3001/api/scan?hostname=phantom-wallet.xyz"
 
 ### 4. Load the extension
 
-```bash
-# Two env files, dev mode bakes localhost:3001, prod bakes walour.vercel.app
-cp apps/extension/.env.example apps/extension/.env.development
-cp apps/extension/.env.example apps/extension/.env.production
+See [`apps/extension/README.md`](apps/extension/README.md) for the dev vs prod build setup.
 
-cd apps/extension && npm run dev   # dev-mode dist (localhost worker)
-# or:
-npm run build                       # prod-mode dist (walour.vercel.app, for Chrome Web Store)
+```bash
+cd apps/extension && npm run build
 ```
 
-Chrome → `chrome://extensions` → Developer mode → **Load unpacked** → `apps/extension/dist`
-
-The extension activates on a tight allowlist of 12 known DeFi/wallet domains (jup.ag, raydium.io, orca.so, drift.trade, app.marinade.finance, app.marginfi.com, app.kamino.finance, phantom.app, solflare.com, www.backpack.app, magiceden.io, www.tensor.trade) plus localhost for development testing. The `host_permissions` allowlist is kept narrow on purpose, content scripts don't run on pages outside this set.
+Then in Chrome → `chrome://extensions` → Developer mode → **Load unpacked** → `apps/extension/dist`
 
 ### 5. Stats dashboard
 
@@ -316,36 +308,7 @@ Walour is a security product, so its own posture is published.
 
 **Threat model:** the SDK and extension sit in the wallet-signing critical path; the worker pays for AI/RPC/threat-intel calls per request; the on-chain oracle is the durable shared trust layer. Adversaries we defend against: malicious dApps that craft drainer transactions, phishing pages that postMessage the bridge, attackers who try to Sybil-flag legitimate addresses on the oracle, and anyone attempting to drain Anthropic/Helius/GoPlus quota by hammering public worker endpoints.
 
-**Audit + remediation:** A pre-submission security audit closed **4 CRITICAL + 20 HIGH + 22 MEDIUM + 12 LOW** findings across SDK, worker, extension, and the Anchor program. Highlights: Sybil-resistant PDA seed namespacing, prompt-injection wrapper on all Claude calls, owner+discriminator verification on every on-chain account read, body-size + hostname + rate-limit guards on every public worker endpoint, Supabase RLS hardened with CHECK constraints. Full audit and remediation logs are kept internally; available on request.
-
-**Deployment requirement, Vercel cron auth:** Vercel cron does not support custom Authorization headers in `vercel.json`. Instead Vercel auto-injects the value of the `CRON_SECRET` env var as `Authorization: Bearer <CRON_SECRET>` on every scheduled invocation. Before deploying:
-
-1. In `apps/worker/.env` set `WALOUR_CRON_SECRET` to a 32-byte hex string (`node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`).
-2. In Vercel project env, set BOTH `WALOUR_CRON_SECRET` AND `CRON_SECRET` to the same value.
-
-Without step 2, `/api/purge`, `/api/promote`, and `/api/ingest` will 401 immediately on every cron tick. `lib/cron-auth.ts` accepts either env name as a fallback so local development with only `WALOUR_CRON_SECRET` works without a separate `CRON_SECRET`.
-
-### How to verify the security posture
-
-```bash
-# 1. Rate limit on /api/scan (expect first ~30 → 200, rest → 429)
-for i in $(seq 1 50); do curl -s -o /dev/null -w "%{http_code} " "http://localhost:3001/api/scan?hostname=test$i.xyz" & done; wait
-
-# 2. Cron-class endpoints reject GET (405) and unauthenticated POST (401)
-curl -s -o /dev/null -w "purge GET: %{http_code}\n"  -X GET  http://localhost:3001/api/purge
-curl -s -o /dev/null -w "purge POST: %{http_code}\n" -X POST http://localhost:3001/api/purge
-
-# 3. Hostname input validation (expect 400)
-curl -s -o /dev/null -w "%{http_code}\n" "http://localhost:3001/api/scan?hostname=%3Cscript%3E"
-
-# 4. Supabase RLS, drain_blocked_events should have a CHECK-constrained policy
-#    (run via the Supabase SQL editor under the project's anon role)
-SELECT policyname, with_check FROM pg_policies WHERE tablename = 'drain_blocked_events';
-SELECT conname FROM pg_constraint WHERE conrelid = 'public.drain_blocked_events'::regclass AND contype = 'c';
-
-# 5. Oracle program, Sybil corroboration must fail
-cd walour && anchor test --skip-deploy
-```
+**Audit + remediation:** A pre-submission security audit closed **4 CRITICAL + 20 HIGH + 22 MEDIUM + 12 LOW** findings across SDK, worker, extension, and the Anchor program. Highlights: Sybil-resistant PDA seed namespacing, prompt-injection wrapper on all Claude calls, owner+discriminator verification on every on-chain account read, defence-in-depth guards on every public worker endpoint, Supabase RLS hardened with CHECK constraints. Full audit and remediation logs are kept internally; available on request.
 
 ---
 

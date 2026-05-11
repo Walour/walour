@@ -56,7 +56,7 @@ A single Helius outage today silently breaks the overlay because the breaker res
 - **Transaction simulation** — use Helius `simulateTransaction` with `accountsToReturn` to compute pre/post token + SOL deltas for the signer. Render in overlay as "You will pay X, you will receive Y." Flag any unexpected balance change to a non-signer-controlled account as high risk.
 - **Appeal/dispute flow** — Anchor instruction `appeal_threat`: stake 0.01 SOL to challenge a corpus entry. Web UI at `walour.xyz/appeal/[id]`. Adjudication via 2-of-3 multisig (v1). Successful appeals refund stake + zero confidence + trigger GC.
 - **Signed threat certificates** — every corpus entry signed by Walour's Ed25519 oracle key on write. SDK's `lookupAddress` verifies signature before trusting. Public key at `walour.xyz/.well-known/walour-oracle-key.json`.
-- **Source attribution + confidence math** — every entry tracks `sources: [{provider, weight, fetched_at}]`. Confidence is a weighted aggregate, not a single float. Surfaces in overlay as "3 sources: Chainabuse, ScamSniffer, community."
+- **Source attribution + confidence math** — every entry tracks `sources: [{provider, weight, fetched_at}]`. Confidence is a weighted aggregate, not a single float. Surfaces in overlay as "3 sources: ScamSniffer, GoPlus, community."
 - **Domain phishing model upgrade** — add Levenshtein + homoglyph check against top 200 Solana dApps. Cache verdicts in Redis 1h.
 - **NLP scam-classifier endpoint** — `/api/classify`: Claude Sonnet 4.6 with prompt cache, classifies arbitrary text (DM, tweet, email) as scam-likely/benign with cited reasons.
 

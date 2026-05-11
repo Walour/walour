@@ -79,9 +79,7 @@ flowchart TB
     publicRpc["Solana public RPC"]
     goplus["GoPlus Security API"]
     anthropic["Anthropic Claude Haiku 4.5<br/>streaming tx decoder"]
-    chainabuse["Chainabuse"]
     scamsniffer["ScamSniffer blacklist"]
-    twitter["Twitter/X recent search"]
   end
 
   cache --> upstash
@@ -98,10 +96,8 @@ flowchart TB
   rpcFallback --> rpcfast
   rpcFallback --> publicRpc
 
-  ingest --> chainabuse
   ingest --> scamsniffer
   ingest --> goplus
-  ingest --> twitter
   ingest -- "normalise + dedupe + upsert_threat RPC" --> supabase
   purge --> supabase
 

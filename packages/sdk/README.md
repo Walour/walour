@@ -115,6 +115,7 @@ GOPLUS_API_KEY=           # Optional, higher rate limits on token checks
 WALOUR_PROGRAM_ID=        # Optional, on-chain oracle program ID (default: devnet program)
 WALOUR_ORACLE_CLUSTER=    # Optional, 'devnet' (default) | 'mainnet'
 WALOUR_ORACLE_RPC_URL=    # Optional, override RPC URL for oracle reads
+CLOAK_NETWORK=            # Optional, 'mainnet' (default) | 'devnet' — used by submitPrivateReportCloak()
 ```
 
 ---

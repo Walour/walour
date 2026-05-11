@@ -1,11 +1,9 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import Badge from '@/components/ui/Badge'
 import ConfBar from '@/components/ui/ConfBar'
 import type { ThreatRow } from '@/lib/types'
-
-type ReportState = 'idle' | 'open' | 'submitting' | 'done' | 'error'
 
 interface DetailDrawerProps {
   row: ThreatRow | null
@@ -108,77 +106,6 @@ function CopyButton({ address }: { address: string }) {
         </svg>
       )}
     </button>
-  )
-}
-
-function InlineReport({ address }: { address: string }) {
-  const [state, setState] = useState<ReportState>('idle')
-  const lastAddress = useRef(address)
-
-  // Reset when address changes (new row selected)
-  useEffect(() => {
-    if (lastAddress.current !== address) {
-      lastAddress.current = address
-      setState('idle')
-    }
-  }, [address])
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault()
-    setState('submitting')
-    try {
-      const res = await fetch('/api/report', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ address, type: 'false_positive' }),
-      })
-      setState(res.ok ? 'done' : 'error')
-    } catch {
-      setState('error')
-    }
-  }
-
-  if (state === 'done') {
-    return (
-      <div style={{ fontSize: 13, color: 'var(--accent)', display: 'flex', alignItems: 'center', gap: 6 }}>
-        <span>✓</span> Report submitted. Confidence will update as it is corroborated.
-      </div>
-    )
-  }
-
-  if (state === 'idle') {
-    return (
-      <button
-        type="button"
-        className="drawer-fp-link"
-        onClick={() => setState('open')}
-        style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
-      >
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-          <circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" />
-        </svg>
-        Mark as false positive
-      </button>
-    )
-  }
-
-  return (
-    <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 8, width: '100%' }}>
-      <div style={{ fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.5 }}>
-        Submit a false positive report. Confidence will be reviewed and may be reduced.
-      </div>
-      {state === 'error' && (
-        <div style={{ fontSize: 12, color: 'var(--danger)' }}>Submission failed. Try again.</div>
-      )}
-      <div style={{ display: 'flex', gap: 8 }}>
-        <button type="submit" className="btn btn-secondary" disabled={state === 'submitting'} style={{ fontSize: 13, padding: '6px 14px', flex: 1 }}>
-          {state === 'submitting' ? 'Submitting…' : 'Confirm false positive'}
-        </button>
-        <button type="button" className="btn btn-secondary" onClick={() => setState('idle')} style={{ fontSize: 13, padding: '6px 10px' }}>
-          Cancel
-        </button>
-      </div>
-    </form>
   )
 }
 
@@ -304,10 +231,6 @@ export default function DetailDrawer({ row, onClose }: DetailDrawerProps) {
               </section>
             </div>
 
-            {/* Footer — inline report */}
-            <div className="drawer-footer">
-              <InlineReport address={row.address} />
-            </div>
           </>
         )}
       </aside>

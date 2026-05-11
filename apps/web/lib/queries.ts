@@ -101,7 +101,6 @@ const BLOCK_REASON_STORY: Record<string, string> = {
 const THREAT_TYPE_STORY: Record<string, string> = {
   drainer: 'Newly catalogued drainer address',
   rug: 'Rug-pull token added to the registry',
-  phishing: 'Phishing site indexed from community reports',
   malicious_token: 'Malicious token surfaced from on-chain heuristics',
   phishing_domain: 'Phishing domain indexed from community reports',
 }

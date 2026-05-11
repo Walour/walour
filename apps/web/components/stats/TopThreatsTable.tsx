@@ -10,7 +10,7 @@ interface TopThreatsTableProps {
 const RANK_COLORS = ['#F59E0B', '#8B949E', '#B45309'] as const
 
 function isValidType(type: string): type is ThreatType {
-  return ['drainer', 'rug', 'phishing', 'malicious_token'].includes(type)
+  return ['drainer', 'rug', 'phishing_domain', 'malicious_token'].includes(type)
 }
 
 function truncateAddress(addr: string): string {

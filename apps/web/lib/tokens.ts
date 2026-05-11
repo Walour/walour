@@ -22,13 +22,13 @@ export function confColor(value: number): string {
 export const THREAT_TYPE_LABELS: Record<string, string> = {
   drainer: 'Drainer',
   rug: 'Rug',
-  phishing: 'Phishing',
+  phishing_domain: 'Phishing',
   malicious_token: 'Malicious Token',
 }
 
 export const THREAT_CSS_CLASS: Record<string, string> = {
   drainer: 'badge-drainer',
   rug: 'badge-rug',
-  phishing: 'badge-phishing',
+  phishing_domain: 'badge-phishing',
   malicious_token: 'badge-token',
 }

@@ -49,7 +49,7 @@ export default function FilterBar({ onSearch, onType, search, type }: FilterBarP
           <option value="all">All types</option>
           <option value="drainer">Drainer</option>
           <option value="rug">Rug</option>
-          <option value="phishing">Phishing</option>
+          <option value="phishing_domain">Phishing</option>
           <option value="malicious_token">Malicious Token</option>
         </select>
       </div>

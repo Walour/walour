@@ -1,4 +1,4 @@
-export type ThreatType = 'drainer' | 'rug' | 'phishing' | 'malicious_token'
+export type ThreatType = 'drainer' | 'rug' | 'phishing_domain' | 'malicious_token'
 
 export interface ThreatRow {
   address: string

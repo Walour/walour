@@ -1,7 +1,7 @@
 import { THREAT_CSS_CLASS, THREAT_TYPE_LABELS } from '@/lib/tokens'
 
 interface BadgeProps {
-  type: 'drainer' | 'rug' | 'phishing' | 'malicious_token'
+  type: 'drainer' | 'rug' | 'phishing_domain' | 'malicious_token'
 }
 
 export default function Badge({ type }: BadgeProps) {

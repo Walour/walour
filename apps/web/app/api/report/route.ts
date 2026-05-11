@@ -4,7 +4,7 @@ import type { ThreatType } from '@/lib/types'
 
 export const runtime = 'nodejs'
 
-const VALID_TYPES: ThreatType[] = ['drainer', 'rug', 'phishing', 'malicious_token']
+const VALID_TYPES: ThreatType[] = ['drainer', 'rug', 'phishing_domain', 'malicious_token']
 
 // In-memory rate limit map: address → last submit epoch (ms)
 const rateLimitMap = new Map<string, number>()

@@ -174,7 +174,7 @@ export default function RegistryClient({
 const THREAT_TYPES = [
   { value: 'drainer', label: 'Wallet Drainer' },
   { value: 'rug', label: 'Rug Pull' },
-  { value: 'phishing', label: 'Phishing Site' },
+  { value: 'phishing_domain', label: 'Phishing Site' },
   { value: 'malicious_token', label: 'Malicious Token' },
 ] as const
 
@@ -182,12 +182,12 @@ type SubmitState = 'idle' | 'submitting' | 'done' | 'error'
 
 function ReportModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   const [address, setAddress] = useState('')
-  const [type, setType] = useState('phishing')
+  const [type, setType] = useState('phishing_domain')
   const [submitState, setSubmitState] = useState<SubmitState>('idle')
 
   function reset() {
     setAddress('')
-    setType('phishing')
+    setType('phishing_domain')
     setSubmitState('idle')
     onClose()
   }
